@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ai-helpdesk-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ai_helpdesk
+      POSTGRES_USER: ai_helpdesk
+      POSTGRES_PASSWORD: ai_helpdesk_dev_password
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
