@@ -1,8 +1,12 @@
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.ticket import Ticket
+from app.models.user import User
+from app.models.ticket_category import TicketCategory
+from app.models.organization import Organization
 from app.repositories.ticket import TicketRepository
 from app.schemas.ticket import TicketCreate, TicketUpdate
 
@@ -13,6 +17,54 @@ class TicketService:
         self.repository = TicketRepository(db)
 
     def create_ticket(self, data: TicketCreate) -> Ticket:
+        # ---------------------------------------------------------
+        # Validate organization
+        # ---------------------------------------------------------
+        organization_exists = self.db.scalar(
+            select(1).where(
+                Organization.id == data.organization_id
+            )
+        )
+
+        if organization_exists is None:
+            raise ValueError("Organization not found")
+
+        # ---------------------------------------------------------
+        # Validate creator
+        # ---------------------------------------------------------
+        creator = self.db.scalar(
+            select(User).where(
+                User.id == data.created_by,
+                User.organization_id == data.organization_id,
+            )
+        )
+
+        if creator is None:
+            raise ValueError(
+                "Created-by user does not belong to organization"
+            )
+
+        # ---------------------------------------------------------
+        # Validate category
+        # ---------------------------------------------------------
+        if data.category_id is not None:
+            category = self.db.scalar(
+                select(TicketCategory).where(
+                    TicketCategory.id == data.category_id,
+                    TicketCategory.organization_id
+                    == data.organization_id,
+                    TicketCategory.is_active.is_(True),
+                )
+            )
+
+            if category is None:
+                raise ValueError(
+                    "Category not found or inactive"
+                )
+
+        # ---------------------------------------------------------
+        # Create ticket
+        # ---------------------------------------------------------
         ticket = Ticket(
             organization_id=data.organization_id,
             created_by=data.created_by,
@@ -25,10 +77,14 @@ class TicketService:
 
         self.repository.create(ticket)
         self.db.commit()
+        self.db.refresh(ticket)
 
         return ticket
 
-    def get_ticket(self, ticket_id: UUID) -> Ticket | None:
+    def get_ticket(
+        self,
+        ticket_id: UUID,
+    ) -> Ticket | None:
         return self.repository.get_by_id(ticket_id)
 
     def list_tickets(
@@ -42,3 +98,87 @@ class TicketService:
             limit=limit,
             offset=offset,
         )
+
+    def update_ticket(
+        self,
+        ticket_id: UUID,
+        data: TicketUpdate,
+    ) -> Ticket | None:
+
+        ticket = self.repository.get_by_id(ticket_id)
+
+        if ticket is None:
+            return None
+
+        update_data = data.model_dump(
+            exclude_unset=True
+        )
+
+        # ---------------------------------------------------------
+        # Validate category when changing category
+        # ---------------------------------------------------------
+        if "category_id" in update_data:
+            category_id = update_data["category_id"]
+
+            if category_id is not None:
+                category = self.db.scalar(
+                    select(TicketCategory).where(
+                        TicketCategory.id == category_id,
+                        TicketCategory.organization_id
+                        == ticket.organization_id,
+                        TicketCategory.is_active.is_(True),
+                    )
+                )
+
+                if category is None:
+                    raise ValueError(
+                        "Category not found or inactive"
+                    )
+
+        # ---------------------------------------------------------
+        # Validate assigned user
+        # ---------------------------------------------------------
+        if "assigned_to" in update_data:
+            assigned_to = update_data["assigned_to"]
+
+            if assigned_to is not None:
+                user = self.db.scalar(
+                    select(User).where(
+                        User.id == assigned_to,
+                        User.organization_id
+                        == ticket.organization_id,
+                    )
+                )
+
+                if user is None:
+                    raise ValueError(
+                        "Assigned user does not belong "
+                        "to ticket organization"
+                    )
+
+        # ---------------------------------------------------------
+        # Update fields
+        # ---------------------------------------------------------
+        for field, value in update_data.items():
+            setattr(ticket, field, value)
+
+        self.repository.update(ticket)
+        self.db.commit()
+        self.db.refresh(ticket)
+
+        return ticket
+
+    def delete_ticket(
+        self,
+        ticket_id: UUID,
+    ) -> bool:
+
+        ticket = self.repository.get_by_id(ticket_id)
+
+        if ticket is None:
+            return False
+
+        self.repository.delete(ticket)
+        self.db.commit()
+
+        return True

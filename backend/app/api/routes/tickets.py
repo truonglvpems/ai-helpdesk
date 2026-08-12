@@ -3,11 +3,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-# from app.db.session import get_db
 from app.core.database import get_db
-from app.schemas.ticket import TicketCreate, TicketResponse
+from app.schemas.ticket import TicketCreate, TicketUpdate, TicketResponse
 from app.services.ticket import TicketService
-
 
 router = APIRouter(
     prefix="/tickets",
@@ -25,7 +23,14 @@ def create_ticket(
     db: Session = Depends(get_db),
 ):
     service = TicketService(db)
-    return service.create_ticket(data)
+
+    try:
+        return service.create_ticket(data)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        )
 
 
 @router.get(
@@ -66,3 +71,58 @@ def list_tickets(
         limit=limit,
         offset=offset,
     )
+
+
+@router.patch(
+    "/{ticket_id}",
+    response_model=TicketResponse,
+)
+def update_ticket(
+    ticket_id: UUID,
+    data: TicketUpdate,
+    db: Session = Depends(get_db),
+):
+    service = TicketService(db)
+
+    try:
+        ticket = service.update_ticket(ticket_id, data)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        )
+
+    if ticket is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Ticket not found",
+        )
+
+    return ticket
+
+
+@router.delete(
+    "/{ticket_id}",
+    status_code=204,
+)
+def delete_ticket(
+    ticket_id: UUID,
+    db: Session = Depends(get_db),
+):
+    service = TicketService(db)
+
+    try:
+        deleted = service.delete_ticket(ticket_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        )
+
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail="Ticket not found",
+        )
+
+    return None
