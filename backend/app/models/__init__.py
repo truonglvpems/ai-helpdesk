@@ -1,4 +1,5 @@
 from app.models.base import Base
+from app.models.auth_user import AuthUser
 from app.models.organization import Organization
 from app.models.user import User
 from app.models.ticket_category import TicketCategory
@@ -12,6 +13,7 @@ from app.models.audit_log import AuditLog
 
 __all__ = [
     "Base",
+    "AuthUser",
     "Organization",
     "User",
     "TicketCategory",

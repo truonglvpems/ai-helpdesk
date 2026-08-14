@@ -25,8 +25,9 @@ class User(Base):
 
     auth_user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        # ForeignKey("auth_users.id", ondelete="CASCADE"),
+        ForeignKey("auth_users.id", ondelete="CASCADE"),
         nullable=False,
+        unique=True,
         index=True,
     )
 
@@ -69,4 +70,9 @@ class User(Base):
         "Organization",
         back_populates="users"
     )
-    
+
+    auth_user: Mapped["AuthUser"] = relationship(
+        "AuthUser",
+        back_populates="user",
+        
+    )
