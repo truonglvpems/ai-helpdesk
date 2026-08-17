@@ -4,12 +4,17 @@ from sqlalchemy import text
 from app.core.database import engine
 from app.api.routes.tickets import router as tickets_router
 from app.api.routes.ticket_comments import router as ticket_comments_router
+from app.api.routes.auth import router as auth_router
 
 app = FastAPI(
     title="AI Helpdesk API",
     version="1.0.0",
 )
 
+app.include_router(
+    auth_router,
+    prefix="/api/v1",
+    )   
 
 app.include_router(
     tickets_router,

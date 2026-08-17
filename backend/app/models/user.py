@@ -1,11 +1,16 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import String, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 
 from app.models.base import Base
+
+if TYPE_CHECKING:
+    from app.models.auth_user import AuthUser
+    from app.models.organization import Organization
 
 class User(Base):
     __tablename__ = "users"
