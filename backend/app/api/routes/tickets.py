@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.ticket import TicketCreate, TicketUpdate, TicketResponse
 from app.services.ticket import TicketService
+from app.api.dependencies import get_current_user
+from app.models.user import User
 
 router = APIRouter(
     prefix="/tickets",
@@ -21,6 +23,7 @@ router = APIRouter(
 def create_ticket(
     data: TicketCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = TicketService(db)
 
@@ -40,6 +43,7 @@ def create_ticket(
 def get_ticket(
     ticket_id: UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = TicketService(db)
 
@@ -63,6 +67,7 @@ def list_tickets(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = TicketService(db)
 
@@ -81,6 +86,7 @@ def update_ticket(
     ticket_id: UUID,
     data: TicketUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = TicketService(db)
 
@@ -108,6 +114,7 @@ def update_ticket(
 def delete_ticket(
     ticket_id: UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = TicketService(db)
 

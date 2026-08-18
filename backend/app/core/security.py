@@ -1,8 +1,12 @@
 from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
+from argon2.exceptions import InvalidHashError, VerifyMismatchError
+
+from fastapi.security import HTTPBearer
 
 
 _password_hasher = PasswordHasher()
+
+bearer_scheme = HTTPBearer()
 
 
 def hash_password(password: str) -> str:
@@ -18,5 +22,5 @@ def verify_password(
             password_hash,
             password,
         )
-    except VerifyMismatchError:
+    except (VerifyMismatchError, InvalidHashError):
         return False
