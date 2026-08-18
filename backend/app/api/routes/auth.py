@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.auth import LoginRequest, TokenResponse
 from app.services.auth import AuthService
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, require_role
 from app.models.user import User
 
 
@@ -47,4 +47,19 @@ def get_me(
         "role": current_user.role,
         "organization_id": str(current_user.organization_id),
         "status": current_user.status,
+    }
+
+@router.get(
+    "/admin-test",
+)
+def admin_test(
+    current_user: User = Depends(
+        require_role("ADMIN")
+    ),
+):
+    return {
+        "message": "Admin access granted",
+        "user_id": str(current_user.id),
+        "email": current_user.email,
+        "role": current_user.role,
     }
