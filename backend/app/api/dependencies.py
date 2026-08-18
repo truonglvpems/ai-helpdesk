@@ -11,7 +11,8 @@ from app.models.auth_user import AuthUser
 from app.models.user import User
 from app.repositories.auth_user import AuthUserRepository
 from app.core.security import bearer_scheme
-
+from app.core.permissions import Permission
+from app.core.role_permissions import has_permission
 
 def get_current_auth_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
@@ -87,3 +88,17 @@ def require_role(*allowed_roles: str) -> Callable:
         return current_user
 
     return role_dependency
+
+def require_permission(permission: str) -> Callable:
+    def permission_dependency(
+        current_user: User = Depends(get_current_user),
+    ) -> User:
+        if not has_permission(current_user.role, permission):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+
+        return current_user
+
+    return permission_dependency
