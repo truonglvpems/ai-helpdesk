@@ -1,0 +1,287 @@
+from uuid import uuid4
+from unittest.mock import MagicMock
+
+from app.models.user import User
+from app.services.ticket import TicketService
+from app.schemas.ticket import TicketCreate, TicketUpdate
+
+
+def make_current_user(
+    user_id,
+    organization_id,
+):
+    return User(
+        id=user_id,
+        organization_id=organization_id,
+        auth_user_id=uuid4(),
+        email=f"{user_id}@example.com",
+        full_name="Tenant Test User",
+        role="EMPLOYEE",
+        status="active",
+    )
+
+
+def test_create_ticket_uses_current_user_tenant_identity():
+    user_id = uuid4()
+    user_organization_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=user_organization_id,
+    )
+
+    data = TicketCreate(
+        category_id=None,
+        title="Tenant scope test",
+        description="Testing authenticated tenant identity",
+        priority="MEDIUM",
+    )
+
+    db = MagicMock()
+
+    db.scalar.side_effect = [
+        1,
+        current_user,
+    ]
+
+    repository = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    ticket = service.create_ticket(
+        data,
+        current_user,
+    )
+
+    assert ticket.organization_id == user_organization_id
+    assert ticket.created_by == user_id
+
+    repository.create.assert_called_once_with(ticket)
+    db.commit.assert_called_once()
+    db.refresh.assert_called_once_with(ticket)
+
+
+def test_create_ticket_ignores_client_tenant_identity():
+    user_id = uuid4()
+    user_organization_id = uuid4()
+
+    fake_organization_id = uuid4()
+    fake_created_by = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=user_organization_id,
+    )
+
+    data = TicketCreate(
+        category_id=None,
+        title="Tenant spoofing test",
+        description="Client must not control tenant identity",
+        priority="MEDIUM",
+    )
+
+    db = MagicMock()
+
+    db.scalar.side_effect = [
+        1,
+        current_user,
+    ]
+
+    repository = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    ticket = service.create_ticket(
+        data,
+        current_user,
+    )
+
+    assert ticket.organization_id == user_organization_id
+    assert ticket.created_by == user_id
+
+    assert ticket.organization_id != fake_organization_id
+    assert ticket.created_by != fake_created_by
+
+def test_get_ticket_uses_current_user_organization():
+    user_id = uuid4()
+    user_organization_id = uuid4()
+    ticket_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=user_organization_id,
+    )
+
+    repository = MagicMock()
+    expected_ticket = MagicMock()
+
+    repository.get_by_id.return_value = expected_ticket
+
+    service = TicketService.__new__(TicketService)
+    service.repository = repository
+
+    result = service.get_ticket(
+        ticket_id=ticket_id,
+        current_user=current_user,
+    )
+
+    assert result is expected_ticket
+
+    repository.get_by_id.assert_called_once_with(
+        ticket_id,
+        user_organization_id,
+    )
+
+def test_update_ticket_uses_current_user_organization():
+    user_id = uuid4()
+    user_organization_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=user_organization_id,
+    )
+
+    ticket_id = uuid4()
+
+    data = TicketUpdate(
+        title="Updated title",
+    )
+
+    db = MagicMock()
+    repository = MagicMock()
+
+    ticket = MagicMock()
+    ticket.organization_id = user_organization_id
+
+    repository.get_by_id.return_value = ticket
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    result = service.update_ticket(
+        ticket_id,
+        data,
+        current_user,
+    )
+
+    assert result == ticket
+
+    repository.get_by_id.assert_called_once_with(
+        ticket_id,
+        user_organization_id,
+    )
+
+def test_delete_ticket_uses_current_user_organization():
+    user_id = uuid4()
+    user_organization_id = uuid4()
+    ticket_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=user_organization_id,
+    )
+
+    repository = MagicMock()
+    ticket = MagicMock()
+
+    repository.get_by_id.return_value = ticket
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    result = service.delete_ticket(
+        ticket_id,
+        current_user,
+    )
+
+    assert result is True
+
+    repository.get_by_id.assert_called_once_with(
+        ticket_id,
+        user_organization_id,
+    )
+
+    repository.delete.assert_called_once_with(ticket)
+    db.commit.assert_called_once()
+
+
+def test_delete_ticket_cannot_delete_other_organization_ticket():
+    user_id = uuid4()
+    user_organization_id = uuid4()
+    other_organization_id = uuid4()
+    ticket_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=user_organization_id,
+    )
+
+    repository = MagicMock()
+
+    # Repository tenant scope prevents access to
+    # a ticket belonging to another organization.
+    repository.get_by_id.return_value = None
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    result = service.delete_ticket(
+        ticket_id,
+        current_user,
+    )
+
+    assert result is False
+
+    repository.get_by_id.assert_called_once_with(
+        ticket_id,
+        user_organization_id,
+    )
+
+    repository.delete.assert_not_called()
+    db.commit.assert_not_called()
+
+
+def test_delete_ticket_returns_false_when_ticket_not_found():
+    user_id = uuid4()
+    user_organization_id = uuid4()
+    ticket_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=user_organization_id,
+    )
+
+    repository = MagicMock()
+    repository.get_by_id.return_value = None
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    result = service.delete_ticket(
+        ticket_id,
+        current_user,
+    )
+
+    assert result is False
+
+    repository.get_by_id.assert_called_once_with(
+        ticket_id,
+        user_organization_id,
+    )
+
+    repository.delete.assert_not_called()
+    db.commit.assert_not_called()

@@ -16,13 +16,23 @@ class TicketService:
         self.db = db
         self.repository = TicketRepository(db)
 
-    def create_ticket(self, data: TicketCreate) -> Ticket:
+    def create_ticket(
+        self,
+        data: TicketCreate,
+        current_user: User,
+    ) -> Ticket:
+        # ---------------------------------------------------------
+        # Tenant identity comes from authenticated user
+        # ---------------------------------------------------------
+        organization_id = current_user.organization_id
+        created_by = current_user.id
+
         # ---------------------------------------------------------
         # Validate organization
         # ---------------------------------------------------------
         organization_exists = self.db.scalar(
             select(1).where(
-                Organization.id == data.organization_id
+                Organization.id == organization_id
             )
         )
 
@@ -34,8 +44,8 @@ class TicketService:
         # ---------------------------------------------------------
         creator = self.db.scalar(
             select(User).where(
-                User.id == data.created_by,
-                User.organization_id == data.organization_id,
+                User.id == created_by,
+                User.organization_id == organization_id,
             )
         )
 
@@ -51,8 +61,7 @@ class TicketService:
             category = self.db.scalar(
                 select(TicketCategory).where(
                     TicketCategory.id == data.category_id,
-                    TicketCategory.organization_id
-                    == data.organization_id,
+                    TicketCategory.organization_id == organization_id,
                     TicketCategory.is_active.is_(True),
                 )
             )
@@ -66,8 +75,8 @@ class TicketService:
         # Create ticket
         # ---------------------------------------------------------
         ticket = Ticket(
-            organization_id=data.organization_id,
-            created_by=data.created_by,
+            organization_id=organization_id,
+            created_by=created_by,
             category_id=data.category_id,
             title=data.title,
             description=data.description,
@@ -84,8 +93,12 @@ class TicketService:
     def get_ticket(
         self,
         ticket_id: UUID,
+        current_user: User,
     ) -> Ticket | None:
-        return self.repository.get_by_id(ticket_id)
+        return self.repository.get_by_id(
+            ticket_id,
+            current_user.organization_id,
+        )
 
     def list_tickets(
         self,
@@ -103,9 +116,12 @@ class TicketService:
         self,
         ticket_id: UUID,
         data: TicketUpdate,
+        current_user: User,
     ) -> Ticket | None:
-
-        ticket = self.repository.get_by_id(ticket_id)
+        ticket = self.repository.get_by_id(
+            ticket_id,
+            current_user.organization_id,
+        )
 
         if ticket is None:
             return None
@@ -171,9 +187,12 @@ class TicketService:
     def delete_ticket(
         self,
         ticket_id: UUID,
+        current_user: User,
     ) -> bool:
-
-        ticket = self.repository.get_by_id(ticket_id)
+        ticket = self.repository.get_by_id(
+            ticket_id,
+            current_user.organization_id,
+        )
 
         if ticket is None:
             return False
