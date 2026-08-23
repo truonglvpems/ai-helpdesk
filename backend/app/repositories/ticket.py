@@ -16,8 +16,19 @@ class TicketRepository:
         self.db.refresh(ticket)
         return ticket
 
-    def get_by_id(self, ticket_id: UUID) -> Ticket | None:
-        stmt = select(Ticket).where(Ticket.id == ticket_id)
+    def get_by_id(
+        self,
+        ticket_id: UUID,
+        organization_id: UUID,
+    ) -> Ticket | None:
+        stmt = (
+            select(Ticket)
+            .where(
+                Ticket.id == ticket_id,
+                Ticket.organization_id == organization_id,
+            )
+        )
+
         return self.db.scalar(stmt)
 
     def list_by_organization(

@@ -5,8 +5,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class TicketCreate(BaseModel):
-    organization_id: UUID
-    created_by: UUID
+    # organization_id: UUID
+    # created_by: UUID
     category_id: UUID | None = None
 
     title: str = Field(min_length=1, max_length=200)
@@ -32,7 +32,7 @@ class TicketResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    organization_id: UUID
+    # organization_id: UUID
     created_by: UUID
     assigned_to: UUID | None
     category_id: UUID | None
