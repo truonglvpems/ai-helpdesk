@@ -1,7 +1,12 @@
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from app.api.routes.tickets import list_tickets, delete_ticket, get_ticket
+from app.api.routes.tickets import (
+    delete_ticket,
+    get_ticket,
+    list_tickets,
+    update_ticket,
+)
 from app.models.user import User
 
 
@@ -183,5 +188,95 @@ def test_delete_ticket_returns_404_when_ticket_not_found():
 
     service.delete_ticket.assert_called_once_with(
         ticket_id,
+        current_user,
+    )
+
+def test_update_ticket_uses_current_user():
+    user_organization_id = uuid4()
+    ticket_id = uuid4()
+
+    current_user = make_current_user(
+        user_organization_id,
+    )
+
+    db = MagicMock()
+    service = MagicMock()
+
+    expected_ticket = MagicMock()
+    service.update_ticket.return_value = expected_ticket
+
+    tickets_module = __import__(
+        "app.api.routes.tickets",
+        fromlist=["TicketService"],
+    )
+
+    original_service = tickets_module.TicketService
+
+    try:
+        tickets_module.TicketService = lambda db: service
+
+        data = MagicMock()
+
+        result = tickets_module.update_ticket(
+            ticket_id=ticket_id,
+            data=data,
+            db=db,
+            current_user=current_user,
+        )
+
+    finally:
+        tickets_module.TicketService = original_service
+
+    assert result is expected_ticket
+
+    service.update_ticket.assert_called_once_with(
+        ticket_id,
+        data,
+        current_user,
+    )
+
+def test_update_ticket_returns_404_when_ticket_not_found():
+    user_organization_id = uuid4()
+    ticket_id = uuid4()
+
+    current_user = make_current_user(
+        user_organization_id,
+    )
+
+    db = MagicMock()
+    service = MagicMock()
+
+    service.update_ticket.return_value = None
+
+    tickets_module = __import__(
+        "app.api.routes.tickets",
+        fromlist=["TicketService"],
+    )
+
+    original_service = tickets_module.TicketService
+
+    try:
+        tickets_module.TicketService = lambda db: service
+
+        data = MagicMock()
+
+        try:
+            tickets_module.update_ticket(
+                ticket_id=ticket_id,
+                data=data,
+                db=db,
+                current_user=current_user,
+            )
+            assert False, "Expected HTTPException"
+        except Exception as exc:
+            assert exc.status_code == 404
+            assert exc.detail == "Ticket not found"
+
+    finally:
+        tickets_module.TicketService = original_service
+
+    service.update_ticket.assert_called_once_with(
+        ticket_id,
+        data,
         current_user,
     )

@@ -100,7 +100,11 @@ def update_ticket(
     service = TicketService(db)
 
     try:
-        ticket = service.update_ticket(ticket_id, data)
+        ticket = service.update_ticket(
+            ticket_id,
+            data,
+            current_user,
+        )
     except ValueError as exc:
         raise HTTPException(
             status_code=400,

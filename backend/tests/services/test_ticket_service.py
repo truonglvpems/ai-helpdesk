@@ -285,3 +285,43 @@ def test_delete_ticket_returns_false_when_ticket_not_found():
 
     repository.delete.assert_not_called()
     db.commit.assert_not_called()
+
+def test_update_ticket_cannot_update_other_organization_ticket():
+    user_id = uuid4()
+    user_organization_id = uuid4()
+    ticket_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=user_organization_id,
+    )
+
+    data = TicketUpdate(
+        title="Unauthorized tenant update",
+    )
+
+    repository = MagicMock()
+    repository.get_by_id.return_value = None
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    result = service.update_ticket(
+        ticket_id,
+        data,
+        current_user,
+    )
+
+    assert result is None
+
+    repository.get_by_id.assert_called_once_with(
+        ticket_id,
+        user_organization_id,
+    )
+
+    repository.update.assert_not_called()
+    db.commit.assert_not_called()
+    db.refresh.assert_not_called()
