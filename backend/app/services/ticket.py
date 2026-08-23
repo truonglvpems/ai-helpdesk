@@ -7,6 +7,7 @@ from app.models.ticket import Ticket
 from app.models.user import User
 from app.models.ticket_category import TicketCategory
 from app.models.organization import Organization
+from app.policies.ticket import TicketPolicy
 from app.repositories.ticket import TicketRepository
 from app.schemas.ticket import TicketCreate, TicketUpdate
 
@@ -95,10 +96,24 @@ class TicketService:
         ticket_id: UUID,
         current_user: User,
     ) -> Ticket | None:
-        return self.repository.get_by_id(
+        ticket = self.repository.get_by_id(
             ticket_id,
             current_user.organization_id,
         )
+
+        if ticket is None:
+            return None
+
+        # ---------------------------------------------------------
+        # Resource-level read policy
+        # ---------------------------------------------------------
+        if not TicketPolicy.can_read(
+            current_user,
+            ticket,
+        ):
+            return None
+
+        return ticket
 
     def list_tickets(
         self,
@@ -124,6 +139,15 @@ class TicketService:
         )
 
         if ticket is None:
+            return None
+
+        # ---------------------------------------------------------
+        # Resource-level update policy
+        # ---------------------------------------------------------
+        if not TicketPolicy.can_update(
+            current_user,
+            ticket,
+        ):
             return None
 
         update_data = data.model_dump(

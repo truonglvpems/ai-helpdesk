@@ -1,5 +1,5 @@
 from uuid import uuid4
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from app.models.user import User
 from app.services.ticket import TicketService
@@ -124,10 +124,14 @@ def test_get_ticket_uses_current_user_organization():
     service = TicketService.__new__(TicketService)
     service.repository = repository
 
-    result = service.get_ticket(
-        ticket_id=ticket_id,
-        current_user=current_user,
-    )
+    with patch(
+        "app.services.ticket.TicketPolicy.can_read",
+        return_value=True,
+    ):
+        result = service.get_ticket(
+            ticket_id=ticket_id,
+            current_user=current_user,
+        )
 
     assert result is expected_ticket
 
@@ -163,11 +167,15 @@ def test_update_ticket_uses_current_user_organization():
     service.db = db
     service.repository = repository
 
-    result = service.update_ticket(
-        ticket_id,
-        data,
-        current_user,
-    )
+    with patch(
+        "app.services.ticket.TicketPolicy.can_update",
+        return_value=True,
+    ):
+        result = service.update_ticket(
+            ticket_id,
+            data,
+            current_user,
+        )
 
     assert result == ticket
 
