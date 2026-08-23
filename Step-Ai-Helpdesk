@@ -1,0 +1,1247 @@
+AI HELPDESK — PROJECT HANDOFF
+========================================
+
+MỤC TIÊU DỰ ÁN
+----------------------------------------
+Xây dựng nền tảng AI Helpdesk cho doanh nghiệp, phát triển dần từ:
+
+Employee
+   ↓
+Tạo / theo dõi Ticket
+   ↓
+Technician
+   ↓
+Xử lý IT Support
+   ↓
+AI Helpdesk
+   ↓
+AI phân loại / tóm tắt / đề xuất giải pháp
+   ↓
+Knowledge Base + Vector Search
+   ↓
+IT Workforce
+   ↓
+AI Matching
+   ↓
+IT Marketplace
+
+Mục tiêu dài hạn:
+- Kết nối doanh nghiệp với nguồn nhân lực IT có kỹ năng.
+- AI hỗ trợ phân loại, xử lý và matching ticket.
+- Phát triển theo mô hình marketplace tương tự logic Grab/XanhSM,
+  nhưng dành cho dịch vụ và nhân lực IT.
+
+
+==================================================
+1. KIẾN TRÚC TỔNG THỂ
+==================================================
+
+Backend hiện phát triển trước.
+
+Stack hiện tại:
+- Python 3.11
+- FastAPI
+- SQLAlchemy 2.x
+- PostgreSQL
+- PostgreSQL + pgvector
+- Alembic
+- Pydantic
+- JWT
+- Argon2 password hashing
+- Uvicorn
+- Docker cho PostgreSQL
+
+Project:
+
+E:\Git_New\GITHUB\ai-helpdesk\backend
+
+Layered Architecture:
+
+API Router
+    ↓
+Service
+    ↓
+Repository
+    ↓
+SQLAlchemy Model
+    ↓
+PostgreSQL
+
+
+==================================================
+2. CẤU TRÚC APP HIỆN TẠI
+==================================================
+
+app/
+├── main.py
+│
+├── api/
+│   ├── dependencies.py
+│   └── routes/
+│       ├── auth.py
+│       ├── tickets.py
+│       └── ticket_comments.py
+│
+├── core/
+│   ├── config.py
+│   ├── database.py
+│   ├── jwt.py
+│   └── security.py
+│
+├── models/
+│   ├── ai_conversation.py
+│   ├── ai_message.py
+│   ├── audit_log.py
+│   ├── auth_user.py
+│   ├── base.py
+│   ├── knowledge_chunk.py
+│   ├── knowledge_document.py
+│   ├── organization.py
+│   ├── ticket.py
+│   ├── ticket_category.py
+│   ├── ticket_comment.py
+│   └── user.py
+│
+├── repositories/
+│   ├── auth_user.py
+│   ├── ticket.py
+│   └── ticket_comment.py
+│
+├── schemas/
+│   ├── auth.py
+│   ├── ticket.py
+│   └── ticket_comment.py
+│
+└── services/
+    ├── auth.py
+    ├── auth_user.py
+    ├── ticket.py
+    └── ticket_comment.py
+
+
+==================================================
+3. DATABASE
+==================================================
+
+PostgreSQL:
+- Database: ai_helpdesk
+- User: ai_helpdesk
+- PostgreSQL chạy Docker
+- pgvector extension đã được sử dụng/cấu hình
+- pgvector version đã kiểm tra: 0.8.6
+
+Các nhóm bảng/model đã có:
+
+organizations
+users
+auth_users
+ticket_categories
+tickets
+ticket_comments
+knowledge_documents
+knowledge_chunks
+ai_conversations
+ai_messages
+audit_logs
+
+Database migrations đã chạy thành công bằng Alembic.
+
+Đã kiểm tra database và dữ liệu thực tế.
+
+
+==================================================
+4. ORGANIZATION / USER MODEL
+==================================================
+
+User có:
+
+- id
+- organization_id
+- auth_user_id
+- email
+- full_name
+- role
+- status
+- created_at
+- updated_at
+
+Role hiện tại:
+
+ADMIN
+EMPLOYEE
+TECHNICIAN
+
+Organization hiện tại dùng:
+
+organization_id
+
+Định hướng:
+Multi-tenant / Organization Isolation.
+
+
+==================================================
+5. AUTH USER
+==================================================
+
+Model:
+
+app/models/auth_user.py
+
+AuthUser gồm:
+
+- id
+- email
+- password_hash
+- is_active
+- created_at
+- updated_at
+
+Quan hệ:
+
+AuthUser
+   ↕
+User
+
+AuthUser.id
+    =
+User.auth_user_id
+
+
+==================================================
+6. AUTHENTICATION — 10.5
+==================================================
+
+ĐÃ HOÀN THÀNH TOÀN BỘ 10.5.
+
+--------------------------------------------------
+10.5.1 decode_access_token()
+--------------------------------------------------
+
+Đã triển khai trong:
+
+app/core/jwt.py
+
+JWT payload gồm:
+
+{
+    "sub": "<auth_user_id>",
+    "exp": <expiration>
+}
+
+Thuật toán:
+
+HS256
+
+Secret lấy từ:
+
+settings.jwt_secret_key
+
+Đã test:
+
+create_access_token()
+        ↓
+decode_access_token()
+        ↓
+payload
+        ↓
+sub == user_id
+
+PASS.
+
+
+--------------------------------------------------
+10.5.2 get_current_auth_user()
+--------------------------------------------------
+
+Đã triển khai:
+
+app/api/dependencies.py
+
+Luồng:
+
+Bearer JWT
+    ↓
+decode_access_token()
+    ↓
+sub
+    ↓
+UUID
+    ↓
+AuthUserRepository / database
+    ↓
+AuthUser
+
+
+Đã test trực tiếp:
+
+AUTH USER ID:
+d92b1640-1edb-42ef-aeb8-666889d1bbad
+
+EMAIL:
+admin@acme.local
+
+ACTIVE:
+True
+
+PASS.
+
+
+--------------------------------------------------
+10.5.3 get_current_user()
+--------------------------------------------------
+
+Luồng:
+
+AuthUser
+    ↓
+auth_user.user
+    ↓
+User
+
+Đã test:
+
+ADMIN
+    ↓
+User
+    ↓
+role = ADMIN
+    ↓
+organization_id hợp lệ
+
+PASS.
+
+
+--------------------------------------------------
+10.5.4 Authorization: Bearer <JWT>
+--------------------------------------------------
+
+Đã dùng:
+
+FastAPI HTTPBearer
+
+OpenAPI đã xác nhận:
+
+{
+  "HTTPBearer": {
+    "type": "http",
+    "scheme": "bearer"
+  }
+}
+
+PASS.
+
+
+--------------------------------------------------
+10.5.5 Protected endpoint
+--------------------------------------------------
+
+Đã tạo:
+
+GET /api/v1/auth/me
+
+Đã test bằng JWT ADMIN.
+
+Response:
+
+{
+  "id": "00c92005-66be-44aa-8e94-b4df4f259d77",
+  "email": "admin@acme.local",
+  "full_name": "System Administrator",
+  "role": "ADMIN",
+  "organization_id": "1fbeedcd-ab78-4e39-b579-7707fac01399",
+  "status": "active"
+}
+
+PASS.
+
+
+--------------------------------------------------
+10.5.6 JWT validation
+--------------------------------------------------
+
+Đã test đầy đủ:
+
+1. JWT hợp lệ
+   → 200 OK
+
+2. JWT bị sửa
+   → 401
+   {
+       "detail": "Invalid or expired token"
+   }
+
+3. JWT hết hạn
+   → 401
+   {
+       "detail": "Invalid or expired token"
+   }
+
+PASS.
+
+
+--------------------------------------------------
+10.5.7 Bảo vệ Ticket API
+--------------------------------------------------
+
+Ticket endpoints:
+
+POST   /api/v1/tickets
+GET    /api/v1/tickets
+GET    /api/v1/tickets/{ticket_id}
+PATCH  /api/v1/tickets/{ticket_id}
+DELETE /api/v1/tickets/{ticket_id}
+
+Đã thêm:
+
+current_user: User = Depends(get_current_user)
+
+vào Ticket routes.
+
+Test:
+
+Không có JWT
+    ↓
+401 Not authenticated
+
+Có JWT
+    ↓
+Ticket API
+    ↓
+200 OK
+
+
+Đã test bằng curl.exe:
+
+Authorization: Bearer <JWT>
+
+Kết quả:
+
+HTTP/1.1 200 OK
+
+Ticket trả về:
+
+id:
+adc35637-c9d3-4b48-884d-e49a3f3edfd4
+
+organization_id:
+1fbeedcd-ab78-4e39-b579-7707fac01399
+
+created_by:
+50f11192-82c8-4cb3-aa54-7ac4de2871bf
+
+title:
+Kiểm tra chức năng Ticket Comment
+
+status:
+OPEN
+
+priority:
+MEDIUM
+
+
+Swagger UI sau đó cũng đã được xác nhận:
+
+GET /api/v1/tickets
+→ 200 OK
+→ list ticket thành công.
+
+10.5 HOÀN THÀNH.
+
+
+==================================================
+7. AUTH API
+==================================================
+
+Route:
+
+POST /api/v1/auth/login
+
+Schema:
+
+LoginRequest:
+- email
+- password
+
+TokenResponse:
+
+{
+    "access_token": "...",
+    "token_type": "bearer"
+}
+
+Login đã hoạt động.
+
+Tài khoản ADMIN:
+
+email:
+admin@acme.local
+
+password test hiện tại:
+Admin@123456
+
+Role:
+ADMIN
+
+
+==================================================
+8. DEV AUTH USERS
+==================================================
+
+Các AuthUser đã tồn tại:
+
+admin@acme.local
+employee@acme.local
+technician@acme.local
+admin@example.com
+
+Đã phát hiện seed ban đầu có:
+
+password_hash = CHANGE_ME
+
+cho một số user.
+
+Đã xử lý bằng Argon2.
+
+Password test hiện tại:
+
+ADMIN:
+Admin@123456
+
+EMPLOYEE:
+Employee@123456
+
+TECHNICIAN:
+Technician@123456
+
+Các password này chỉ phục vụ môi trường test/dev.
+
+
+==================================================
+9. USER THỰC TẾ
+==================================================
+
+ADMIN:
+
+auth_user_id:
+d92b1640-1edb-42ef-aeb8-666889d1bbad
+
+user_id:
+00c92005-66be-44aa-8e94-b4df4f259d77
+
+email:
+admin@acme.local
+
+full_name:
+System Administrator
+
+role:
+ADMIN
+
+organization_id:
+1fbeedcd-ab78-4e39-b579-7707fac01399
+
+
+EMPLOYEE:
+
+auth_user_id:
+c3b7a849-b043-48ac-9668-eb43a3144205
+
+user_id:
+50f11192-82c8-4cb3-aa54-7ac4de2871bf
+
+email:
+employee@acme.local
+
+full_name:
+John Employee
+
+role:
+EMPLOYEE
+
+organization_id:
+1fbeedcd-ab78-4e39-b579-7707fac01399
+
+
+TECHNICIAN:
+
+auth_user_id:
+da1459b3-e997-4ee6-a640-14c214d2a22a
+
+user_id:
+c4483eaf-845f-443b-a701-49d538c882d9
+
+email:
+technician@acme.local
+
+full_name:
+IT Technician
+
+role:
+TECHNICIAN
+
+organization_id:
+1fbeedcd-ab78-4e39-b579-7707fac01399
+
+
+==================================================
+10. RBAC — 10.6
+==================================================
+
+10.6.1 — RBAC Dependency
+HOÀN THÀNH.
+
+Đã xây:
+
+require_role(*allowed_roles)
+
+Cách dùng:
+
+Depends(require_role("ADMIN"))
+
+hoặc:
+
+Depends(require_role("ADMIN", "TECHNICIAN"))
+
+Luồng:
+
+get_current_user()
+        ↓
+require_role(...)
+        ↓
+role check
+        ↓
+allowed → endpoint
+denied  → 403
+
+
+HTTP 403:
+
+{
+    "detail": "Insufficient permissions"
+}
+
+
+--------------------------------------------------
+10.6.2 — ADMIN permission
+--------------------------------------------------
+
+Đã tạo test endpoint:
+
+GET /api/v1/auth/admin-test
+
+Dùng:
+
+require_role("ADMIN")
+
+ADMIN test:
+
+admin@acme.local
+role = ADMIN
+
+Kết quả:
+
+200 OK
+
+Response:
+
+{
+  "message": "Admin access granted",
+  "user_id": "00c92005-66be-44aa-8e94-b4df4f259d77",
+  "email": "admin@acme.local",
+  "role": "ADMIN"
+}
+
+PASS.
+
+
+--------------------------------------------------
+10.6.3 — EMPLOYEE permission
+--------------------------------------------------
+
+Đã cấp password test:
+
+Employee@123456
+
+verify_credentials():
+
+AUTHENTICATED: True
+
+Sau đó Employee dùng JWT gọi:
+
+GET /api/v1/auth/admin-test
+
+Kết quả:
+
+403 Forbidden
+
+{
+    "detail": "Insufficient permissions"
+}
+
+PASS.
+
+
+--------------------------------------------------
+10.6.4 — TECHNICIAN permission
+--------------------------------------------------
+
+Đã cấp password test:
+
+Technician@123456
+
+verify_credentials():
+
+AUTHENTICATED: True
+
+Technician dùng JWT gọi:
+
+GET /api/v1/auth/admin-test
+
+Kết quả:
+
+403 Forbidden
+
+{
+    "detail": "Insufficient permissions"
+}
+
+PASS.
+
+
+==================================================
+11. GIT CHECKPOINT
+==================================================
+
+Đã commit milestone sau khi hoàn thành 10.6.4.
+
+Current commit:
+
+dcffbe5 (HEAD -> master)
+feat(auth):10.6.4-  complete JWT authentication and RBAC foundation
+
+Git status:
+
+clean
+
+Đã kiểm tra:
+
+git status --short
+
+→ không có output.
+
+git diff --cached
+
+→ không có output.
+
+Đây là checkpoint sạch trước khi bắt đầu Ticket RBAC.
+
+
+==================================================
+12. TICKET CRUD — ĐÃ CÓ
+==================================================
+
+Ticket API hiện có:
+
+POST /api/v1/tickets
+GET /api/v1/tickets
+GET /api/v1/tickets/{ticket_id}
+PATCH /api/v1/tickets/{ticket_id}
+DELETE /api/v1/tickets/{ticket_id}
+
+Architecture:
+
+Ticket Router
+    ↓
+TicketService
+    ↓
+TicketRepository
+    ↓
+Ticket Model
+    ↓
+PostgreSQL
+
+Ticket hiện có các field chính:
+
+- id
+- organization_id
+- created_by
+- assigned_to
+- category_id
+- title
+- description
+- status
+- priority
+- ai_summary
+- ai_suggested_solution
+- ai_confidence
+- created_at
+- updated_at
+- resolved_at
+
+Ticket CRUD trước đó đã được hoàn thiện và test.
+
+
+==================================================
+13. TICKET COMMENTS
+==================================================
+
+Đã có:
+
+app/api/routes/ticket_comments.py
+app/services/ticket_comment.py
+app/repositories/ticket_comment.py
+app/models/ticket_comment.py
+app/schemas/ticket_comment.py
+
+TicketComment có:
+
+- id
+- ticket_id
+- author_id
+- body
+- is_internal
+- created_at
+- updated_at
+
+Chức năng comment đã được xây dựng ở backend.
+
+Ticket mẫu hiện tại có title:
+
+"Kiểm tra chức năng Ticket Comment"
+
+description:
+
+"Ticket dùng để kiểm thử chức năng trao đổi giữa employee và technician."
+
+
+==================================================
+14. AI MODULES — ĐÃ CÓ MODEL, CHƯA HOÀN THÀNH BUSINESS LOGIC
+==================================================
+
+Đã có models:
+
+ai_conversation.py
+ai_message.py
+
+Knowledge:
+
+knowledge_document.py
+knowledge_chunk.py
+
+Audit:
+
+audit_log.py
+
+Đây mới là nền tảng data model.
+
+Các chức năng AI chưa hoàn thiện:
+
+- AI ticket classification
+- AI summarization
+- AI suggested solution
+- AI confidence
+- Knowledge Base processing
+- Embedding generation
+- Vector search
+- RAG
+- AI conversation
+- AI-assisted ticket resolution
+
+
+==================================================
+15. ORGANIZATION ISOLATION
+==================================================
+
+ĐÃ CÓ:
+
+User.organization_id
+Ticket.organization_id
+Organization model
+
+NHƯNG CHƯA HOÀN THÀNH SECURITY ISOLATION.
+
+Hiện:
+
+GET /api/v1/tickets
+
+vẫn nhận:
+
+organization_id
+
+từ client.
+
+Đây là điểm cần xử lý sau RBAC.
+
+Mục tiêu cuối:
+
+JWT
+ ↓
+User
+ ↓
+User.organization_id
+ ↓
+Query chỉ trong organization của User
+
+Không được tin organization_id tùy ý từ client.
+
+Organization Isolation là module riêng sau RBAC.
+
+
+==================================================
+16. 10.6.5 — TICKET RBAC
+==================================================
+
+CHƯA HOÀN THÀNH.
+
+Đây là module tiếp theo.
+
+Trước khi sửa code cần thiết kế permission matrix.
+
+
+--------------------------------------------------
+NEXT STEP CHÍNH XÁC:
+10.6.5.1 — Thiết kế ma trận quyền Ticket
+--------------------------------------------------
+
+Baseline đề xuất hiện tại:
+
+                         EMPLOYEE   TECHNICIAN   ADMIN
+
+Create Ticket               ✅          ❌          ✅
+
+List Tickets                ?           ?          ✅
+
+View Ticket                 ?           ?          ✅
+
+Update Ticket               ?           ?          ✅
+
+Delete Ticket               ❌          ❌          ✅
+
+Comment Ticket              ?           ?          ?
+
+
+Chưa được tự ý code ma trận này.
+
+Cần chốt nghiệp vụ trước.
+
+
+Định hướng permission matrix đề xuất:
+
+EMPLOYEE
+- Tạo ticket
+- Xem ticket của chính mình
+- Cập nhật ticket của chính mình theo rule
+- Comment ticket của mình
+- Không delete ticket
+
+TECHNICIAN
+- Xem ticket trong organization
+- Xem ticket được assign
+- Cập nhật ticket được assign
+- Comment ticket được assign
+- Không delete ticket
+- Không tự tạo ticket theo baseline đề xuất
+
+ADMIN
+- Toàn quyền ticket trong organization
+- Create
+- List
+- View
+- Update
+- Delete
+- Comment
+
+
+NHƯNG:
+Đây mới là baseline đề xuất.
+Không được code trước khi chốt.
+
+
+==================================================
+17. ORGANIZATION ISOLATION — CHƯA HOÀN THÀNH
+==================================================
+
+Sau Ticket RBAC.
+
+Mục tiêu:
+
+User.organization_id
+        ↓
+Authorization scope
+        ↓
+Ticket.organization_id
+
+Không cho:
+
+Employee Organization A
+    ↓
+truy cập Ticket Organization B
+
+Không tin:
+
+?organization_id=<arbitrary organization>
+
+
+==================================================
+18. AI HELPDESK — CHƯA HOÀN THÀNH
+==================================================
+
+Roadmap:
+
+Ticket
+ ↓
+AI classification
+ ↓
+AI summary
+ ↓
+AI suggested solution
+ ↓
+Knowledge Base
+ ↓
+Embedding
+ ↓
+pgvector
+ ↓
+Semantic Search
+ ↓
+RAG
+ ↓
+AI-assisted resolution
+
+
+==================================================
+19. IT WORKFORCE — CHƯA HOÀN THÀNH
+==================================================
+
+Mục tiêu:
+
+Xây hệ thống nhân lực IT.
+
+Các IT worker có:
+- skill
+- experience
+- certification
+- availability
+- location
+- rate
+- specialization
+- reputation
+
+Doanh nghiệp:
+- tạo ticket
+- yêu cầu hỗ trợ
+- lựa chọn technician / IT worker
+
+
+==================================================
+20. AI MATCHING — CHƯA HOÀN THÀNH
+==================================================
+
+Mục tiêu:
+
+Ticket
+   ↓
+AI hiểu vấn đề
+   ↓
+Skill requirement
+   ↓
+Technician / IT Worker candidates
+   ↓
+AI scoring
+   ↓
+Best match
+
+
+Có thể dựa trên:
+
+- skills
+- experience
+- ticket category
+- availability
+- organization context
+- historical performance
+- rating
+- location
+- cost
+
+
+==================================================
+21. IT MARKETPLACE — CHƯA HOÀN THÀNH
+==================================================
+
+Đích cuối:
+
+Business
+   ↓
+IT problem / Ticket
+   ↓
+AI Helpdesk
+   ↓
+AI Matching
+   ↓
+IT Workforce
+   ↓
+Marketplace
+   ↓
+IT worker nhận job
+   ↓
+Xử lý
+   ↓
+Review / Rating
+   ↓
+Payment / Settlement
+
+
+Đây là giai đoạn cuối, chưa triển khai.
+
+
+==================================================
+22. ROADMAP TỔNG THỂ
+==================================================
+
+ĐÃ HOÀN THÀNH:
+
+1. Project foundation                         ✅
+2. Database / PostgreSQL                     ✅
+3. SQLAlchemy Models                         ✅
+4. Alembic migrations                        ✅
+5. Organization / User foundation            ✅
+6. Ticket Category                           ✅
+7. Ticket CRUD                               ✅
+8. Ticket Comment foundation                 ✅
+9. Authentication                            ✅
+10. JWT                                      ✅
+11. Protected endpoint                       ✅
+12. Ticket API authentication                ✅
+13. RBAC dependency                          ✅
+14. ADMIN RBAC test                          ✅
+15. EMPLOYEE RBAC test                       ✅
+16. TECHNICIAN RBAC test                     ✅
+
+
+ĐANG TIẾP TỤC:
+
+10.6.5.1
+Thiết kế ma trận quyền Ticket                 ← NEXT
+
+
+CHƯA HOÀN THÀNH:
+
+10.6.5 Ticket RBAC implementation
+10.7 Organization Isolation
+AI Helpdesk
+Knowledge Base / RAG
+AI classification
+AI matching
+IT Workforce
+IT Marketplace
+
+
+==================================================
+23. NGUYÊN TẮC QUAN TRỌNG CHO HỘI THOẠI MỚI
+==================================================
+
+KHÔNG quay lại làm lại 10.5.
+
+Authentication đã hoàn thành.
+
+KHÔNG sửa lại JWT nếu không phát hiện bug.
+
+KHÔNG sửa lại Ticket CRUD nếu không cần thiết.
+
+KHÔNG đưa Organization Isolation vào trước khi thiết kế RBAC.
+
+KHÔNG code Ticket RBAC trước khi chốt permission matrix.
+
+Thứ tự tiếp tục:
+
+10.6.5.1
+Thiết kế ma trận quyền Ticket
+        ↓
+10.6.5.2
+Employee permissions
+        ↓
+10.6.5.3
+Technician permissions
+        ↓
+10.6.5.4
+Admin permissions
+        ↓
+10.6.5.5
+Apply RBAC to Ticket API
+        ↓
+10.6.5.6
+Test 200 / 403
+        ↓
+10.6.5.7
+Security boundary review
+        ↓
+Organization Isolation
+        ↓
+AI Helpdesk
+        ↓
+IT Workforce
+        ↓
+AI Matching
+        ↓
+IT Marketplace
+
+
+==================================================
+24. CÂU LỆNH / CHECKPOINT HIỆN TẠI
+==================================================
+
+Project:
+
+E:\Git_New\GITHUB\ai-helpdesk\backend
+
+Environment:
+
+(.venv)
+
+Git:
+
+dcffbe5
+feat(auth):10.6.4-  complete JWT authentication and RBAC foundation
+
+Working tree:
+
+CLEAN
+
+
+==================================================
+25. ĐIỂM BẮT ĐẦU HỘI THOẠI MỚI
+==================================================
+
+TIẾP TỤC NGAY TẠI:
+
+10.6.5.1 — THIẾT KẾ MA TRẬN QUYỀN TICKET
+
+Không cần kiểm tra lại 10.5.
+
+Không cần test lại JWT.
+
+Không cần tạo lại RBAC dependency.
+
+Không cần tạo lại ADMIN/EMPLOYEE/TECHNICIAN test.
+
+Milestone hiện tại đã được Git commit sạch:
+
+dcffbe5
+
+Bắt đầu bằng việc phân tích nghiệp vụ và CHỐT permission matrix cho:
+
+ADMIN
+EMPLOYEE
+TECHNICIAN
+
+đối với:
+
+POST /tickets
+GET /tickets
+GET /tickets/{ticket_id}
+PATCH /tickets/{ticket_id}
+DELETE /tickets/{ticket_id}
+Ticket Comments
+
+Sau khi chốt ma trận mới bắt đầu sửa code.
