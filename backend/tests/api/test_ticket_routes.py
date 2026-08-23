@@ -2,6 +2,7 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 from app.api.routes.tickets import (
+    create_ticket,
     delete_ticket,
     get_ticket,
     list_tickets,
@@ -277,6 +278,47 @@ def test_update_ticket_returns_404_when_ticket_not_found():
 
     service.update_ticket.assert_called_once_with(
         ticket_id,
+        data,
+        current_user,
+    )
+
+def test_create_ticket_uses_current_user():
+    user_organization_id = uuid4()
+
+    current_user = make_current_user(
+        user_organization_id,
+    )
+
+    db = MagicMock()
+    service = MagicMock()
+
+    expected_ticket = MagicMock()
+    service.create_ticket.return_value = expected_ticket
+
+    tickets_module = __import__(
+        "app.api.routes.tickets",
+        fromlist=["TicketService"],
+    )
+
+    original_service = tickets_module.TicketService
+
+    try:
+        tickets_module.TicketService = lambda db: service
+
+        data = MagicMock()
+
+        result = tickets_module.create_ticket(
+            data=data,
+            db=db,
+            current_user=current_user,
+        )
+
+    finally:
+        tickets_module.TicketService = original_service
+
+    assert result is expected_ticket
+
+    service.create_ticket.assert_called_once_with(
         data,
         current_user,
     )

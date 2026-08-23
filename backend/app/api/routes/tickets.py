@@ -27,7 +27,9 @@ router = APIRouter(
 def create_ticket(
     data: TicketCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        require_permission(Permission.TICKET_CREATE)
+        ),
 ):
     service = TicketService(db)
 
