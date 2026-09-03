@@ -205,10 +205,14 @@ def test_delete_ticket_uses_current_user_organization():
     service.db = db
     service.repository = repository
 
-    result = service.delete_ticket(
-        ticket_id,
-        current_user,
-    )
+    with patch(
+        "app.services.ticket.TicketPolicy.can_delete",
+        return_value=True,
+    ):
+        result = service.delete_ticket(
+            ticket_id,
+            current_user,
+        )
 
     assert result is True
 
@@ -219,6 +223,46 @@ def test_delete_ticket_uses_current_user_organization():
 
     repository.delete.assert_called_once_with(ticket)
     db.commit.assert_called_once()
+
+def test_delete_ticket_denied_by_resource_policy():
+    user_id = uuid4()
+    user_organization_id = uuid4()
+    ticket_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=user_organization_id,
+    )
+
+    repository = MagicMock()
+    ticket = MagicMock()
+
+    repository.get_by_id.return_value = ticket
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_delete",
+        return_value=False,
+    ):
+        result = service.delete_ticket(
+            ticket_id,
+            current_user,
+        )
+
+    assert result is False
+
+    repository.get_by_id.assert_called_once_with(
+        ticket_id,
+        user_organization_id,
+    )
+
+    repository.delete.assert_not_called()
+    db.commit.assert_not_called()
 
 
 def test_delete_ticket_cannot_delete_other_organization_ticket():

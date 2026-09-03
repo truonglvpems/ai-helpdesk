@@ -221,6 +221,13 @@ class TicketService:
         if ticket is None:
             return False
 
+        # ---------------------------------------------------------
+        # Resource-level delete policy
+        # ---------------------------------------------------------
+
+        if not TicketPolicy.can_delete(current_user, ticket):
+            return False
+
         self.repository.delete(ticket)
         self.db.commit()
 
