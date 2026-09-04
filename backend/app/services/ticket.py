@@ -56,6 +56,16 @@ class TicketService:
             )
 
         # ---------------------------------------------------------
+        # Resource-level create policy
+        # ---------------------------------------------------------
+        if not TicketPolicy.can_create(
+            current_user,
+        ):
+            raise PermissionError(
+                "User is not allowed to create ticket"
+            )
+
+        # ---------------------------------------------------------
         # Validate category
         # ---------------------------------------------------------
         if data.category_id is not None:

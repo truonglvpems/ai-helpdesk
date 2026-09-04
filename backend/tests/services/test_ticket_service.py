@@ -1,3 +1,4 @@
+import pytest
 from uuid import uuid4
 from unittest.mock import MagicMock, patch
 
@@ -105,6 +106,103 @@ def test_create_ticket_ignores_client_tenant_identity():
 
     assert ticket.organization_id != fake_organization_id
     assert ticket.created_by != fake_created_by
+
+def test_create_ticket_denied_by_resource_policy():
+    user_id = uuid4()
+    user_organization_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=user_organization_id,
+    )
+
+    data = TicketCreate(
+        category_id=None,
+        title="Create policy test",
+        description="User must not create ticket when policy denies",
+        priority="MEDIUM",
+    )
+
+    db = MagicMock()
+    db.scalar.side_effect = [
+        1,
+        current_user,
+    ]
+
+    repository = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_create",
+        return_value=False,
+    ) as mock_can_create:
+        with pytest.raises(
+            PermissionError,
+            match="User is not allowed to create ticket",
+        ):
+            service.create_ticket(
+                data=data,
+                current_user=current_user,
+            )
+
+    mock_can_create.assert_called_once_with(
+        current_user,
+    )
+
+    repository.create.assert_not_called()
+    db.commit.assert_not_called()
+    db.refresh.assert_not_called()
+
+def test_create_ticket_allowed_by_resource_policy():
+    user_id = uuid4()
+    user_organization_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=user_organization_id,
+    )
+
+    data = TicketCreate(
+        category_id=None,
+        title="Create policy allowed test",
+        description="User is allowed to create ticket",
+        priority="MEDIUM",
+    )
+
+    db = MagicMock()
+    db.scalar.side_effect = [
+        1,
+        current_user,
+    ]
+
+    repository = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_create",
+        return_value=True,
+    ) as mock_can_create:
+        ticket = service.create_ticket(
+            data=data,
+            current_user=current_user,
+        )
+
+    mock_can_create.assert_called_once_with(
+        current_user,
+    )
+
+    assert ticket.organization_id == user_organization_id
+    assert ticket.created_by == user_id
+
+    repository.create.assert_called_once_with(ticket)
+    db.commit.assert_called_once()
+    db.refresh.assert_called_once_with(ticket)
 
 def test_get_ticket_uses_current_user_organization():
     user_id = uuid4()
