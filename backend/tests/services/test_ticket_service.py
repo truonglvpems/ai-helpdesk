@@ -140,6 +140,57 @@ def test_get_ticket_uses_current_user_organization():
         user_organization_id,
     )
 
+def test_list_tickets_filters_tickets_denied_by_resource_policy():
+    user_id = uuid4()
+    user_organization_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=user_organization_id,
+    )
+
+    ticket_allowed = MagicMock()
+    ticket_denied = MagicMock()
+    ticket_allowed.id = uuid4()
+    ticket_denied.id = uuid4()
+
+    repository = MagicMock()
+    repository.list_by_organization.return_value = [
+        ticket_allowed,
+        ticket_denied,
+    ]
+
+    service = TicketService.__new__(TicketService)
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_read",
+        side_effect=[True, False],
+    ) as mock_can_read:
+        result = service.list_tickets(
+            current_user=current_user,
+            limit=50,
+            offset=0,
+        )
+
+    assert result == [ticket_allowed]
+
+    repository.list_by_organization.assert_called_once_with(
+        organization_id=user_organization_id,
+        limit=50,
+        offset=0,
+    )
+
+    assert mock_can_read.call_count == 2
+    mock_can_read.assert_any_call(
+        current_user,
+        ticket_allowed,
+    )
+    mock_can_read.assert_any_call(
+        current_user,
+        ticket_denied,
+    )
+
 def test_update_ticket_uses_current_user_organization():
     user_id = uuid4()
     user_organization_id = uuid4()

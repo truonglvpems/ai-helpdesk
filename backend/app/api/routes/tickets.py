@@ -88,7 +88,7 @@ def list_tickets(
     service = TicketService(db)
 
     return service.list_tickets(
-        organization_id=current_user.organization_id,
+        current_user=current_user,
         limit=limit,
         offset=offset,
     )

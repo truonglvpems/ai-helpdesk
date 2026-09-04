@@ -65,7 +65,7 @@ def test_list_tickets_uses_current_user_organization():
     assert result == expected_tickets
 
     service.list_tickets.assert_called_once_with(
-        organization_id=user_organization_id,
+        current_user=current_user,
         limit=50,
         offset=0,
     )

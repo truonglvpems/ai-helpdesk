@@ -117,15 +117,24 @@ class TicketService:
 
     def list_tickets(
         self,
-        organization_id: UUID,
+        current_user: User,
         limit: int = 50,
         offset: int = 0,
     ) -> list[Ticket]:
-        return self.repository.list_by_organization(
-            organization_id=organization_id,
+        tickets = self.repository.list_by_organization(
+            organization_id=current_user.organization_id,
             limit=limit,
             offset=offset,
         )
+
+        return [
+            ticket
+            for ticket in tickets
+            if TicketPolicy.can_read(
+                current_user,
+                ticket,
+            )
+        ]
 
     def update_ticket(
         self,
