@@ -23,3 +23,10 @@ class Permission:
 
     TICKET_CLOSE = "ticket:close"
     TICKET_REOPEN = "ticket:reopen"
+
+    # Knowledge Document
+    KNOWLEDGE_DOCUMENT_CREATE = "knowledge:document:create"
+    KNOWLEDGE_DOCUMENT_READ = "knowledge:document:read"
+    KNOWLEDGE_DOCUMENT_LIST = "knowledge:document:list"
+    KNOWLEDGE_DOCUMENT_UPDATE = "knowledge:document:update"
+    KNOWLEDGE_DOCUMENT_DELETE = "knowledge:document:delete"

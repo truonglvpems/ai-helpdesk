@@ -16,6 +16,11 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.TICKET_CHANGE_PRIORITY,
             Permission.TICKET_CLOSE,
             Permission.TICKET_REOPEN,
+            Permission.KNOWLEDGE_DOCUMENT_CREATE,
+            Permission.KNOWLEDGE_DOCUMENT_READ,
+            Permission.KNOWLEDGE_DOCUMENT_LIST,
+            Permission.KNOWLEDGE_DOCUMENT_UPDATE,
+            Permission.KNOWLEDGE_DOCUMENT_DELETE,
         }
     ),
 
@@ -32,6 +37,10 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.TICKET_CHANGE_PRIORITY,
             Permission.TICKET_CLOSE,
             Permission.TICKET_REOPEN,
+            Permission.KNOWLEDGE_DOCUMENT_CREATE,
+            Permission.KNOWLEDGE_DOCUMENT_READ,
+            Permission.KNOWLEDGE_DOCUMENT_LIST,
+            Permission.KNOWLEDGE_DOCUMENT_UPDATE,
         }
     ),
 
@@ -42,6 +51,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.TICKET_UPDATE_OWN,
             Permission.TICKET_COMMENT,
             Permission.TICKET_REOPEN,
+            Permission.KNOWLEDGE_DOCUMENT_READ,
+            Permission.KNOWLEDGE_DOCUMENT_LIST,
         }
     ),
 }
