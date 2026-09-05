@@ -501,6 +501,19 @@ def test_employee_cannot_comment_on_other_employee_ticket():
 
     assert TicketPolicy.can_comment(user, ticket) is False
 
+def test_user_cannot_comment_on_other_organization_ticket():
+    user = make_user(
+        EMPLOYEE_ID,
+        "EMPLOYEE",
+        ORG_A,
+    )
+
+    ticket = make_ticket(
+        ORG_B,
+        EMPLOYEE_ID,
+    )
+
+    assert TicketPolicy.can_comment(user, ticket) is False
 
 def test_admin_can_change_status():
     user = make_user(

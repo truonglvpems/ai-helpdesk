@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.ticket import Ticket
 from app.models.ticket_comment import TicketComment
 from app.models.user import User
+from app.policies.ticket import TicketPolicy
 from app.repositories.ticket_comment import TicketCommentRepository
 from app.schemas.ticket_comment import (
     TicketCommentCreate,
@@ -22,6 +23,7 @@ class TicketCommentService:
         self,
         ticket_id: UUID,
         data: TicketCommentCreate,
+        current_user: User,
     ) -> TicketComment:
         # ---------------------------------------------------------
         # Validate ticket
@@ -35,12 +37,23 @@ class TicketCommentService:
         if ticket is None:
             raise ValueError("Ticket not found")
 
+                # ---------------------------------------------------------
+        # Resource-level comment policy
         # ---------------------------------------------------------
-        # Validate user
+        if not TicketPolicy.can_comment(
+            current_user,
+            ticket,
+        ):
+            raise PermissionError(
+                "User is not allowed to comment on ticket"
+            )
+
+        # ---------------------------------------------------------
+        # Validate authenticated user
         # ---------------------------------------------------------
         user = self.db.scalar(
             select(User).where(
-                User.id == data.user_id,
+                User.id == current_user.id,
                 User.organization_id == ticket.organization_id,
             )
         )
@@ -55,7 +68,7 @@ class TicketCommentService:
         # ---------------------------------------------------------
         comment = TicketComment(
             ticket_id=ticket_id,
-            user_id=data.user_id,
+            user_id=current_user.id,
             content=data.content,
             is_internal=data.is_internal,
         )
@@ -75,6 +88,7 @@ class TicketCommentService:
     def list_comments(
         self,
         ticket_id: UUID,
+        current_user: User,
         limit: int = 50,
         offset: int = 0,
     ) -> list[TicketComment]:
@@ -90,6 +104,17 @@ class TicketCommentService:
         if ticket is None:
             raise ValueError("Ticket not found")
 
+        # ---------------------------------------------------------
+        # Resource-level ticket read policy
+        # ---------------------------------------------------------
+        if not TicketPolicy.can_read(
+            current_user,
+            ticket,
+        ):
+            raise PermissionError(
+                "User is not allowed to read ticket comments"
+            )
+
         return self.repository.list_by_ticket(
             ticket_id=ticket_id,
             limit=limit,
@@ -99,7 +124,7 @@ class TicketCommentService:
     def update_comment(
         self,
         comment_id: UUID,
-        user_id: UUID,
+        current_user: User,
         data: TicketCommentUpdate,
     ) -> TicketComment | None:
         # ---------------------------------------------------------
@@ -123,11 +148,22 @@ class TicketCommentService:
             return None
 
         # ---------------------------------------------------------
-        # Validate user / organization
+        # Resource-level comment update policy
+        # ---------------------------------------------------------
+        if not TicketPolicy.can_update(
+            current_user,
+            ticket,
+        ):
+            raise PermissionError(
+                "User is not allowed to update ticket comment"
+            )
+
+        # ---------------------------------------------------------
+        # Validate authenticated user / organization
         # ---------------------------------------------------------
         user = self.db.scalar(
             select(User).where(
-                User.id == user_id,
+                User.id == current_user.id,
                 User.organization_id == ticket.organization_id,
             )
         )
@@ -156,7 +192,7 @@ class TicketCommentService:
     def delete_comment(
         self,
         comment_id: UUID,
-        user_id: UUID,
+        current_user: User,
     ) -> bool:
         # ---------------------------------------------------------
         # Validate comment
@@ -179,11 +215,22 @@ class TicketCommentService:
             return False
 
         # ---------------------------------------------------------
-        # Validate user / organization
+        # Resource-level comment delete policy
+        # ---------------------------------------------------------
+        if not TicketPolicy.can_comment(
+            current_user,
+            ticket,
+        ):
+            raise PermissionError(
+                "User is not allowed to delete ticket comment"
+            )
+
+        # ---------------------------------------------------------
+        # Validate authenticated user / organization
         # ---------------------------------------------------------
         user = self.db.scalar(
             select(User).where(
-                User.id == user_id,
+                User.id == current_user.id,
                 User.organization_id == ticket.organization_id,
             )
         )

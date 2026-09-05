@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class TicketCommentCreate(BaseModel):
-    user_id: UUID
+    # user_id: UUID
     content: str = Field(min_length=1)
     is_internal: bool = False
 

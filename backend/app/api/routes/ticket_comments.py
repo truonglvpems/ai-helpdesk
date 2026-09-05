@@ -4,6 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.api.dependencies import require_permission
+from app.core.permissions import Permission
+from app.models.user import User
 from app.schemas.ticket_comment import (
     TicketCommentCreate,
     TicketCommentUpdate,
@@ -25,6 +28,9 @@ router = APIRouter(
 def create_comment(
     ticket_id: UUID,
     data: TicketCommentCreate,
+    current_user: User = Depends(
+        require_permission(Permission.TICKET_COMMENT)
+        ),
     db: Session = Depends(get_db),
 ):
     service = TicketCommentService(db)
@@ -33,6 +39,7 @@ def create_comment(
         return service.create_comment(
             ticket_id=ticket_id,
             data=data,
+            current_user=current_user,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -56,6 +63,9 @@ def list_comments(
         default=0,
         ge=0,
     ),
+    current_user: User = Depends(
+        require_permission(Permission.TICKET_READ)
+    ),
     db: Session = Depends(get_db),
 ):
     service = TicketCommentService(db)
@@ -63,8 +73,14 @@ def list_comments(
     try:
         return service.list_comments(
             ticket_id=ticket_id,
+            current_user=current_user,
             limit=limit,
             offset=offset,
+        )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail=str(exc),
         )
     except ValueError as exc:
         raise HTTPException(
@@ -72,7 +88,10 @@ def list_comments(
             detail=str(exc),
         )
 
-
+@router.patch(
+    "/{comment_id}",
+    response_model=TicketCommentResponse,
+)
 @router.patch(
     "/{comment_id}",
     response_model=TicketCommentResponse,
@@ -81,37 +100,22 @@ def update_comment(
     ticket_id: UUID,
     comment_id: UUID,
     data: TicketCommentUpdate,
-    user_id: UUID = Query(...),
     db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permission(Permission.TICKET_COMMENT)
+    ),
 ):
     service = TicketCommentService(db)
 
-    # ---------------------------------------------------------
-    # Verify comment belongs to requested ticket
-    # ---------------------------------------------------------
-    comment = service.get_comment(comment_id)
-
-    if comment is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Comment not found",
-        )
-
-    if comment.ticket_id != ticket_id:
-        raise HTTPException(
-            status_code=404,
-            detail="Comment not found",
-        )
-
     try:
-        comment = service.update_comment(
+        return service.update_comment(
             comment_id=comment_id,
-            user_id=user_id,
+            current_user=current_user,
             data=data,
         )
-    except ValueError as exc:
+    except PermissionError as exc:
         raise HTTPException(
-            status_code=400,
+            status_code=403,
             detail=str(exc),
         )
 
@@ -131,7 +135,9 @@ def update_comment(
 def delete_comment(
     ticket_id: UUID,
     comment_id: UUID,
-    user_id: UUID = Query(...),
+    current_user: User = Depends(
+        require_permission(Permission.TICKET_COMMENT)
+    ),
     db: Session = Depends(get_db),
 ):
     service = TicketCommentService(db)
@@ -156,8 +162,16 @@ def delete_comment(
     try:
         deleted = service.delete_comment(
             comment_id=comment_id,
-            user_id=user_id,
+            current_user=current_user,
         )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail=str(exc),
+        )
+
+        return deleted
+    
     except ValueError as exc:
         raise HTTPException(
             status_code=400,
