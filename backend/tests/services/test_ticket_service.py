@@ -665,6 +665,147 @@ def test_update_assignment_reassign():
     db.commit.assert_called_once()
     db.refresh.assert_called_once_with(ticket)
 
+
+def test_update_assignment_denied_by_assign_policy():
+    user_id = uuid4()
+    organization_id = uuid4()
+    ticket_id = uuid4()
+    assignee_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=organization_id,
+    )
+
+    ticket = MagicMock()
+    ticket.organization_id = organization_id
+    ticket.assigned_to = None
+
+    repository = MagicMock()
+    repository.get_by_id.return_value = ticket
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_assign",
+        return_value=False,
+    ) as mock_policy:
+        result = service.update_assignment(
+            ticket_id=ticket_id,
+            assigned_to=assignee_id,
+            current_user=current_user,
+        )
+
+    assert result is None
+
+    mock_policy.assert_called_once_with(
+        current_user,
+        ticket,
+    )
+
+    repository.update.assert_not_called()
+    db.commit.assert_not_called()
+    db.refresh.assert_not_called()
+
+
+def test_update_assignment_denied_by_unassign_policy():
+    user_id = uuid4()
+    organization_id = uuid4()
+    ticket_id = uuid4()
+    assignee_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=organization_id,
+    )
+
+    ticket = MagicMock()
+    ticket.organization_id = organization_id
+    ticket.assigned_to = assignee_id
+
+    repository = MagicMock()
+    repository.get_by_id.return_value = ticket
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_unassign",
+        return_value=False,
+    ) as mock_policy:
+        result = service.update_assignment(
+            ticket_id=ticket_id,
+            assigned_to=None,
+            current_user=current_user,
+        )
+
+    assert result is None
+
+    mock_policy.assert_called_once_with(
+        current_user,
+        ticket,
+    )
+
+    repository.update.assert_not_called()
+    db.commit.assert_not_called()
+    db.refresh.assert_not_called()
+
+
+def test_update_assignment_denied_by_reassign_policy():
+    user_id = uuid4()
+    organization_id = uuid4()
+    ticket_id = uuid4()
+    old_assignee_id = uuid4()
+    new_assignee_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=organization_id,
+    )
+
+    ticket = MagicMock()
+    ticket.organization_id = organization_id
+    ticket.assigned_to = old_assignee_id
+
+    repository = MagicMock()
+    repository.get_by_id.return_value = ticket
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_reassign",
+        return_value=False,
+    ) as mock_policy:
+        result = service.update_assignment(
+            ticket_id=ticket_id,
+            assigned_to=new_assignee_id,
+            current_user=current_user,
+        )
+
+    assert result is None
+
+    mock_policy.assert_called_once_with(
+        current_user,
+        ticket,
+    )
+
+    repository.update.assert_not_called()
+    db.commit.assert_not_called()
+    db.refresh.assert_not_called()
+
+
+
 def test_update_status_allowed_by_policy():
     user_id = uuid4()
     organization_id = uuid4()

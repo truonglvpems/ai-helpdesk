@@ -647,3 +647,112 @@ def test_update_ticket_status_returns_403_when_reopen_not_allowed():
         exc_info.value.detail
         == "User is not allowed to reopen ticket"
     )
+
+def test_update_ticket_assignment_returns_403_when_assign_not_allowed():
+    ticket_id = uuid4()
+    assignee_id = uuid4()
+    current_user = MagicMock()
+
+    data = TicketAssignmentUpdate(
+        assigned_to=assignee_id,
+    )
+
+    service = MagicMock()
+    service.update_assignment.side_effect = PermissionError(
+        "User is not allowed to assign ticket"
+    )
+
+    with patch(
+        "app.api.routes.tickets.TicketService",
+        return_value=service,
+    ):
+        from app.api.routes.tickets import update_ticket_assignment
+
+        db = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            update_ticket_assignment(
+                ticket_id=ticket_id,
+                data=data,
+                db=db,
+                current_user=current_user,
+            )
+
+    assert exc_info.value.status_code == 403
+    assert (
+        exc_info.value.detail
+        == "User is not allowed to assign ticket"
+    )
+
+
+def test_update_ticket_assignment_returns_403_when_unassign_not_allowed():
+    ticket_id = uuid4()
+    current_user = MagicMock()
+
+    data = TicketAssignmentUpdate(
+        assigned_to=None,
+    )
+
+    service = MagicMock()
+    service.update_assignment.side_effect = PermissionError(
+        "User is not allowed to unassign ticket"
+    )
+
+    with patch(
+        "app.api.routes.tickets.TicketService",
+        return_value=service,
+    ):
+        from app.api.routes.tickets import update_ticket_assignment
+
+        db = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            update_ticket_assignment(
+                ticket_id=ticket_id,
+                data=data,
+                db=db,
+                current_user=current_user,
+            )
+
+    assert exc_info.value.status_code == 403
+    assert (
+        exc_info.value.detail
+        == "User is not allowed to unassign ticket"
+    )
+
+def test_update_ticket_assignment_returns_403_when_reassign_not_allowed():
+    ticket_id = uuid4()
+    old_assignee_id = uuid4()
+    new_assignee_id = uuid4()
+    current_user = MagicMock()
+
+    data = TicketAssignmentUpdate(
+        assigned_to=new_assignee_id,
+    )
+
+    service = MagicMock()
+    service.update_assignment.side_effect = PermissionError(
+        "User is not allowed to reassign ticket"
+    )
+
+    with patch(
+        "app.api.routes.tickets.TicketService",
+        return_value=service,
+    ):
+        from app.api.routes.tickets import update_ticket_assignment
+
+        db = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            update_ticket_assignment(
+                ticket_id=ticket_id,
+                data=data,
+                db=db,
+                current_user=current_user,
+            )
+
+    assert exc_info.value.status_code == 403
+    assert (
+        exc_info.value.detail
+        == "User is not allowed to reassign ticket"
+    )

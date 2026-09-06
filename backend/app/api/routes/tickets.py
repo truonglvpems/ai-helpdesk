@@ -149,6 +149,11 @@ def update_ticket_assignment(
             assigned_to=data.assigned_to,
             current_user=current_user,
         )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail=str(exc),
+        )
     except ValueError as exc:
         raise HTTPException(
             status_code=400,
