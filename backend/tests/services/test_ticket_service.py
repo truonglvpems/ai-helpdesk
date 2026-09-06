@@ -715,6 +715,61 @@ def test_update_status_allowed_by_policy():
     db.commit.assert_called_once()
     db.refresh.assert_called_once_with(ticket)
 
+@pytest.mark.parametrize(
+    ("from_status", "to_status"),
+    [
+        ("OPEN", "IN_PROGRESS"),
+        ("IN_PROGRESS", "WAITING_FOR_USER"),
+        ("IN_PROGRESS", "WAITING_FOR_VENDOR"),
+        ("IN_PROGRESS", "RESOLVED"),
+        ("WAITING_FOR_USER", "IN_PROGRESS"),
+        ("WAITING_FOR_VENDOR", "IN_PROGRESS"),
+        ("RESOLVED", "IN_PROGRESS"),
+        ("RESOLVED", "CLOSED"),
+    ],
+)
+def test_update_status_accepts_valid_transitions(
+    from_status,
+    to_status,
+):
+    user_id = uuid4()
+    organization_id = uuid4()
+    ticket_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=organization_id,
+    )
+
+    ticket = MagicMock()
+    ticket.organization_id = organization_id
+    ticket.status = from_status
+
+    repository = MagicMock()
+    repository.get_by_id.return_value = ticket
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_change_status",
+        return_value=True,
+    ):
+        result = service.update_status(
+            ticket_id=ticket_id,
+            status=to_status,
+            current_user=current_user,
+        )
+
+    assert result == ticket
+    assert ticket.status == to_status
+    repository.update.assert_called_once_with(ticket)
+    db.commit.assert_called_once()
+    db.refresh.assert_called_once_with(ticket)
+
 def test_update_status_rejects_invalid_transition():
     user_id = uuid4()
     organization_id = uuid4()
