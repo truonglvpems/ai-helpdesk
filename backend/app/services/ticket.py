@@ -288,11 +288,23 @@ class TicketService:
         # ---------------------------------------------------------
         # Update status
         # ---------------------------------------------------------
+        previous_status = ticket.status
         ticket.status = status
 
         self.repository.update(ticket)
         self.db.commit()
         self.db.refresh(ticket)
+
+        AuditLogService(self.db).create_log(
+            current_user=current_user,
+            action="ticket.status_changed",
+            entity_type="ticket",
+            entity_id=ticket.id,
+            metadata_json={
+                "previous_status": previous_status,
+                "status": status,
+            },
+        )
 
         return ticket
 

@@ -854,7 +854,7 @@ def test_update_status_allowed_by_policy():
 
     repository.update.assert_called_once_with(ticket)
     db.commit.assert_called_once()
-    db.refresh.assert_called_once_with(ticket)
+    assert db.refresh.call_args_list[0].args == (ticket,)
 
 @pytest.mark.parametrize(
     ("from_status", "to_status"),
@@ -915,7 +915,7 @@ def test_update_status_accepts_valid_transitions(
     assert ticket.status == to_status
     repository.update.assert_called_once_with(ticket)
     db.commit.assert_called_once()
-    db.refresh.assert_called_once_with(ticket)
+    assert db.refresh.call_args_list[0].args == (ticket,)
 
 def test_update_status_rejects_invalid_transition():
     user_id = uuid4()
