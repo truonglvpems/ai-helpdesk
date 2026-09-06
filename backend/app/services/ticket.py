@@ -217,6 +217,13 @@ class TicketService:
         self.repository.update(ticket)
         self.db.commit()
         self.db.refresh(ticket)
+        AuditLogService(self.db).create_log(
+            current_user=current_user,
+            action="ticket.updated",
+            entity_type="ticket",
+            entity_id=ticket.id,
+            metadata_json=update_data,
+        )
 
         return ticket
 
