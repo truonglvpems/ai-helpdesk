@@ -3,16 +3,17 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
 from app.api.dependencies import require_permission
+from app.core.database import get_db
 from app.core.permissions import Permission
 from app.models.user import User
 from app.schemas.ticket_comment import (
     TicketCommentCreate,
-    TicketCommentUpdate,
     TicketCommentResponse,
+    TicketCommentUpdate,
 )
 from app.services.ticket_comment import TicketCommentService
+
 
 router = APIRouter(
     prefix="/tickets/{ticket_id}/comments",
@@ -30,7 +31,7 @@ def create_comment(
     data: TicketCommentCreate,
     current_user: User = Depends(
         require_permission(Permission.TICKET_COMMENT)
-        ),
+    ),
     db: Session = Depends(get_db),
 ):
     service = TicketCommentService(db)
@@ -88,10 +89,7 @@ def list_comments(
             detail=str(exc),
         )
 
-@router.patch(
-    "/{comment_id}",
-    response_model=TicketCommentResponse,
-)
+
 @router.patch(
     "/{comment_id}",
     response_model=TicketCommentResponse,
@@ -108,7 +106,7 @@ def update_comment(
     service = TicketCommentService(db)
 
     try:
-        return service.update_comment(
+        comment = service.update_comment(
             comment_id=comment_id,
             current_user=current_user,
             data=data,
@@ -120,6 +118,12 @@ def update_comment(
         )
 
     if comment is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Comment not found",
+        )
+
+    if comment.ticket_id != ticket_id:
         raise HTTPException(
             status_code=404,
             detail="Comment not found",
@@ -142,9 +146,6 @@ def delete_comment(
 ):
     service = TicketCommentService(db)
 
-    # ---------------------------------------------------------
-    # Verify comment belongs to requested ticket
-    # ---------------------------------------------------------
     comment = service.get_comment(comment_id)
 
     if comment is None:
@@ -169,9 +170,6 @@ def delete_comment(
             status_code=403,
             detail=str(exc),
         )
-
-        return deleted
-    
     except ValueError as exc:
         raise HTTPException(
             status_code=400,

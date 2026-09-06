@@ -172,6 +172,7 @@ def test_update_comment_uses_current_user():
     service = MagicMock()
 
     expected_comment = MagicMock()
+    expected_comment.ticket_id = ticket_id
     service.update_comment.return_value = expected_comment
 
     comments_module = __import__(
@@ -219,6 +220,7 @@ def test_update_comment_passes_authenticated_user_to_service():
     service = MagicMock()
 
     expected_comment = MagicMock()
+    expected_comment.ticket_id = ticket_id
     service.update_comment.return_value = expected_comment
 
     comments_module = __import__(
