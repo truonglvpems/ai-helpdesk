@@ -318,6 +318,16 @@ class TicketService:
         self.repository.delete(ticket)
         self.db.commit()
 
+        AuditLogService(self.db).create_log(
+            current_user=current_user,
+            action="ticket.deleted",
+            entity_type="ticket",
+            entity_id=ticket.id,
+            metadata_json={
+                "title": ticket.title,
+            },
+        )
+
         return True
 
     def update_assignment(
