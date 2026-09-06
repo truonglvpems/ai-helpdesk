@@ -715,6 +715,58 @@ def test_update_status_allowed_by_policy():
     db.commit.assert_called_once()
     db.refresh.assert_called_once_with(ticket)
 
+def test_update_status_rejects_invalid_transition():
+    user_id = uuid4()
+    organization_id = uuid4()
+    ticket_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=organization_id,
+    )
+
+    ticket = MagicMock()
+    ticket.organization_id = organization_id
+    ticket.status = "OPEN"
+
+    repository = MagicMock()
+    repository.get_by_id.return_value = ticket
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_change_status",
+        return_value=True,
+    ) as mock_can_change_status:
+        with pytest.raises(
+            ValueError,
+            match="Invalid ticket status transition: OPEN -> RESOLVED",
+        ):
+            service.update_status(
+                ticket_id=ticket_id,
+                status="RESOLVED",
+                current_user=current_user,
+            )
+
+    assert ticket.status == "OPEN"
+
+    repository.get_by_id.assert_called_once_with(
+        ticket_id,
+        organization_id,
+    )
+
+    mock_can_change_status.assert_called_once_with(
+        current_user,
+        ticket,
+    )
+
+    repository.update.assert_not_called()
+    db.commit.assert_not_called()
+    db.refresh.assert_not_called()
 
 def test_update_status_denied_by_policy():
     user_id = uuid4()

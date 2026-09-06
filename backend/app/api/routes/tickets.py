@@ -177,11 +177,17 @@ def update_ticket_status(
 ):
     service = TicketService(db)
 
-    ticket = service.update_status(
-        ticket_id=ticket_id,
-        status=data.status,
-        current_user=current_user,
-    )
+    try:
+        ticket = service.update_status(
+            ticket_id=ticket_id,
+            status=data.status,
+            current_user=current_user,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        )
 
     if ticket is None:
         raise HTTPException(

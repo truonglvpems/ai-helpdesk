@@ -537,3 +537,42 @@ def test_update_ticket_status_passes_status_to_service():
         status="RESOLVED",
         current_user=current_user,
     )
+
+def test_update_ticket_status_returns_400_for_invalid_transition():
+    ticket_id = uuid4()
+    current_user = MagicMock()
+
+    data = TicketStatusUpdate(
+        status="RESOLVED",
+    )
+
+    service = MagicMock()
+    service.update_status.side_effect = ValueError(
+        "Invalid ticket status transition: OPEN -> RESOLVED"
+    )
+
+    with patch(
+        "app.api.routes.tickets.TicketService",
+        return_value=service,
+    ):
+        db = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            update_ticket_status(
+                ticket_id=ticket_id,
+                data=data,
+                db=db,
+                current_user=current_user,
+            )
+
+    assert exc_info.value.status_code == 400
+    assert (
+        exc_info.value.detail
+        == "Invalid ticket status transition: OPEN -> RESOLVED"
+    )
+
+    service.update_status.assert_called_once_with(
+        ticket_id=ticket_id,
+        status="RESOLVED",
+        current_user=current_user,
+    )

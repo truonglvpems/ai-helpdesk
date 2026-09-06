@@ -3,6 +3,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.ticket_status import TICKET_STATUS_TRANSITIONS
 from app.models.ticket import Ticket
 from app.models.user import User
 from app.models.ticket_category import TicketCategory
@@ -220,12 +221,32 @@ class TicketService:
         if ticket is None:
             return None
 
+        # ---------------------------------------------------------
+        # Resource-level status policy
+        # ---------------------------------------------------------
         if not TicketPolicy.can_change_status(
             current_user,
             ticket,
         ):
             return None
 
+        # ---------------------------------------------------------
+        # Validate status transition
+        # ---------------------------------------------------------
+        allowed_statuses = TICKET_STATUS_TRANSITIONS.get(
+            ticket.status,
+            frozenset(),
+        )
+
+        if status not in allowed_statuses:
+            raise ValueError(
+                f"Invalid ticket status transition: "
+                f"{ticket.status} -> {status}"
+            )
+
+        # ---------------------------------------------------------
+        # Update status
+        # ---------------------------------------------------------
         ticket.status = status
 
         self.repository.update(ticket)
@@ -250,7 +271,6 @@ class TicketService:
         # ---------------------------------------------------------
         # Resource-level delete policy
         # ---------------------------------------------------------
-
         if not TicketPolicy.can_delete(current_user, ticket):
             return False
 
