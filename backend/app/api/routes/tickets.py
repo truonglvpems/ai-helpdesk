@@ -183,6 +183,11 @@ def update_ticket_status(
             status=data.status,
             current_user=current_user,
         )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail=str(exc),
+        )
     except ValueError as exc:
         raise HTTPException(
             status_code=400,

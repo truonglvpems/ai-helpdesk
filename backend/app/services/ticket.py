@@ -222,6 +222,27 @@ class TicketService:
             return None
 
         # ---------------------------------------------------------
+        # Semantic close / reopen policy
+        # ---------------------------------------------------------
+        if ticket.status == "RESOLVED" and status == "CLOSED":
+            if not TicketPolicy.can_close(
+                current_user,
+                ticket,
+            ):
+                raise PermissionError(
+                    "User is not allowed to close ticket"
+                )
+
+        elif ticket.status == "RESOLVED" and status == "IN_PROGRESS":
+            if not TicketPolicy.can_reopen(
+                current_user,
+                ticket,
+            ):
+                raise PermissionError(
+                    "User is not allowed to reopen ticket"
+                )
+
+        # ---------------------------------------------------------
         # Resource-level status policy
         # ---------------------------------------------------------
         if not TicketPolicy.can_change_status(

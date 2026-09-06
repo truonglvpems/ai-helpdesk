@@ -576,3 +576,74 @@ def test_update_ticket_status_returns_400_for_invalid_transition():
         status="RESOLVED",
         current_user=current_user,
     )
+
+def test_update_ticket_status_returns_403_when_close_not_allowed():
+    ticket_id = uuid4()
+    current_user = MagicMock()
+
+    data = TicketStatusUpdate(
+        status="CLOSED",
+    )
+
+    service = MagicMock()
+    service.update_status.side_effect = PermissionError(
+        "User is not allowed to close ticket"
+    )
+
+    with patch(
+        "app.api.routes.tickets.TicketService",
+        return_value=service,
+    ):
+        db = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            from app.api.routes.tickets import update_ticket_status
+
+            update_ticket_status(
+                ticket_id=ticket_id,
+                data=data,
+                db=db,
+                current_user=current_user,
+            )
+
+    assert exc_info.value.status_code == 403
+    assert (
+        exc_info.value.detail
+        == "User is not allowed to close ticket"
+    )
+
+
+def test_update_ticket_status_returns_403_when_reopen_not_allowed():
+    ticket_id = uuid4()
+    current_user = MagicMock()
+
+    data = TicketStatusUpdate(
+        status="IN_PROGRESS",
+    )
+
+    service = MagicMock()
+    service.update_status.side_effect = PermissionError(
+        "User is not allowed to reopen ticket"
+    )
+
+    with patch(
+        "app.api.routes.tickets.TicketService",
+        return_value=service,
+    ):
+        db = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            from app.api.routes.tickets import update_ticket_status
+
+            update_ticket_status(
+                ticket_id=ticket_id,
+                data=data,
+                db=db,
+                current_user=current_user,
+            )
+
+    assert exc_info.value.status_code == 403
+    assert (
+        exc_info.value.detail
+        == "User is not allowed to reopen ticket"
+    )

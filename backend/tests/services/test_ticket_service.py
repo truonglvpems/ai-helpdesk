@@ -757,6 +757,12 @@ def test_update_status_accepts_valid_transitions(
     with patch(
         "app.services.ticket.TicketPolicy.can_change_status",
         return_value=True,
+    ), patch(
+        "app.services.ticket.TicketPolicy.can_close",
+        return_value=True,
+    ), patch(
+        "app.services.ticket.TicketPolicy.can_reopen",
+        return_value=True,
     ):
         result = service.update_status(
             ticket_id=ticket_id,
@@ -905,6 +911,89 @@ def test_update_status_returns_none_when_ticket_not_found():
         ticket_id,
         organization_id,
     )
+
+    repository.update.assert_not_called()
+    db.commit.assert_not_called()
+    db.refresh.assert_not_called()
+
+def test_update_status_close_requires_close_policy():
+    user_id = uuid4()
+    organization_id = uuid4()
+    ticket_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=organization_id,
+    )
+
+    ticket = MagicMock()
+    ticket.organization_id = organization_id
+    ticket.status = "RESOLVED"
+
+    repository = MagicMock()
+    repository.get_by_id.return_value = ticket
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_change_status",
+        return_value=True,
+    ), patch(
+        "app.services.ticket.TicketPolicy.can_close",
+        return_value=False,
+    ):
+        with pytest.raises(PermissionError):
+            service.update_status(
+                ticket_id=ticket_id,
+                status="CLOSED",
+                current_user=current_user,
+            )
+
+    repository.update.assert_not_called()
+    db.commit.assert_not_called()
+    db.refresh.assert_not_called()
+
+
+def test_update_status_reopen_requires_reopen_policy():
+    user_id = uuid4()
+    organization_id = uuid4()
+    ticket_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=organization_id,
+    )
+
+    ticket = MagicMock()
+    ticket.organization_id = organization_id
+    ticket.status = "RESOLVED"
+
+    repository = MagicMock()
+    repository.get_by_id.return_value = ticket
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_change_status",
+        return_value=True,
+    ), patch(
+        "app.services.ticket.TicketPolicy.can_reopen",
+        return_value=False,
+    ):
+        with pytest.raises(PermissionError):
+            service.update_status(
+                ticket_id=ticket_id,
+                status="IN_PROGRESS",
+                current_user=current_user,
+            )
 
     repository.update.assert_not_called()
     db.commit.assert_not_called()
