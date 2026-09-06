@@ -571,7 +571,7 @@ def test_update_assignment_assign():
     )
     repository.update.assert_called_once_with(ticket)
     db.commit.assert_called_once()
-    db.refresh.assert_called_once_with(ticket)
+    assert db.refresh.call_args_list[0].args == (ticket,)
 
 
 def test_update_assignment_unassign():
@@ -616,7 +616,7 @@ def test_update_assignment_unassign():
     )
     repository.update.assert_called_once_with(ticket)
     db.commit.assert_called_once()
-    db.refresh.assert_called_once_with(ticket)
+    assert db.refresh.call_args_list[0].args == (ticket,)
 
 
 def test_update_assignment_reassign():
@@ -663,7 +663,7 @@ def test_update_assignment_reassign():
     )
     repository.update.assert_called_once_with(ticket)
     db.commit.assert_called_once()
-    db.refresh.assert_called_once_with(ticket)
+    assert db.refresh.call_args_list[0].args == (ticket,)
 
 
 def test_update_assignment_denied_by_assign_policy():

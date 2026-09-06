@@ -378,11 +378,30 @@ class TicketService:
                     "Assigned user does not belong "
                     "to ticket organization"
                 )
-
+        previous_assigned_to = ticket.assigned_to
         ticket.assigned_to = assigned_to
 
         self.repository.update(ticket)
         self.db.commit()
         self.db.refresh(ticket)
+
+        AuditLogService(self.db).create_log(
+            current_user=current_user,
+            action="ticket.assignment_changed",
+            entity_type="ticket",
+            entity_id=ticket.id,
+            metadata_json={
+                "previous_assigned_to": (
+                    str(previous_assigned_to)
+                    if previous_assigned_to is not None
+                    else None
+                ),
+                "assigned_to": (
+                    str(assigned_to)
+                    if assigned_to is not None
+                    else None
+                ),
+            },
+        )
 
         return ticket
