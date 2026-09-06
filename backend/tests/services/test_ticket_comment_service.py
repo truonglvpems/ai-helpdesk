@@ -139,7 +139,7 @@ def test_create_comment_allowed_by_resource_policy():
 
     repository.create.assert_called_once_with(comment)
     db.commit.assert_called_once()
-    db.refresh.assert_called_once_with(comment)
+    assert db.refresh.call_args_list[0].args == (comment,)
 
 def test_list_comments_allowed_by_ticket_read_policy():
     user_id = uuid4()
@@ -306,7 +306,7 @@ def test_update_comment_allowed_by_resource_policy():
 
     repository.update.assert_called_once_with(comment)
     db.commit.assert_called_once()
-    db.refresh.assert_called_once_with(comment)
+    assert db.refresh.call_args_list[0].args == (comment,)
 
 
 def test_update_comment_denied_by_resource_policy():

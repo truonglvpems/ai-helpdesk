@@ -8,6 +8,7 @@ from app.models.ticket_comment import TicketComment
 from app.models.user import User
 from app.policies.ticket import TicketPolicy
 from app.repositories.ticket_comment import TicketCommentRepository
+from app.services.audit_log import AuditLogService
 from app.schemas.ticket_comment import (
     TicketCommentCreate,
     TicketCommentUpdate,
@@ -76,6 +77,17 @@ class TicketCommentService:
         self.repository.create(comment)
         self.db.commit()
         self.db.refresh(comment)
+
+        AuditLogService(self.db).create_log(
+            current_user=current_user,
+            action="ticket.comment_created",
+            entity_type="ticket_comment",
+            entity_id=comment.id,
+            metadata_json={
+                "ticket_id": str(comment.ticket_id),
+                "is_internal": comment.is_internal,
+            },
+        )
 
         return comment
 
@@ -187,6 +199,18 @@ class TicketCommentService:
         self.db.commit()
         self.db.refresh(comment)
 
+        AuditLogService(self.db).create_log(
+            current_user=current_user,
+            action="ticket.comment_updated",
+            entity_type="ticket_comment",
+            entity_id=comment.id,
+            metadata_json={
+                "ticket_id": str(comment.ticket_id),
+                "content": comment.content,
+                "is_internal": comment.is_internal,
+            },
+        )
+
         return comment
 
     def delete_comment(
@@ -245,5 +269,13 @@ class TicketCommentService:
         # ---------------------------------------------------------
         self.repository.delete(comment)
         self.db.commit()
-
+        AuditLogService(self.db).create_log(
+            current_user=current_user,
+            action="ticket.comment_deleted",
+            entity_type="ticket_comment",
+            entity_id=comment.id,
+            metadata_json={
+                "ticket_id": str(comment.ticket_id),
+            },
+        )
         return True
