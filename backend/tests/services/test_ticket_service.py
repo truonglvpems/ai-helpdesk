@@ -61,7 +61,7 @@ def test_create_ticket_uses_current_user_tenant_identity():
 
     repository.create.assert_called_once_with(ticket)
     db.commit.assert_called_once()
-    db.refresh.assert_called_once_with(ticket)
+    assert db.refresh.call_args_list[0].args == (ticket,)
 
 
 def test_create_ticket_ignores_client_tenant_identity():
@@ -202,7 +202,7 @@ def test_create_ticket_allowed_by_resource_policy():
 
     repository.create.assert_called_once_with(ticket)
     db.commit.assert_called_once()
-    db.refresh.assert_called_once_with(ticket)
+    assert db.refresh.call_args_list[0].args == (ticket,)
 
 def test_get_ticket_uses_current_user_organization():
     user_id = uuid4()

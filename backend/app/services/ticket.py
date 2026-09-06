@@ -11,6 +11,7 @@ from app.models.organization import Organization
 from app.policies.ticket import TicketPolicy
 from app.repositories.ticket import TicketRepository
 from app.schemas.ticket import TicketCreate, TicketUpdate
+from app.services.audit_log import AuditLogService
 
 
 class TicketService:
@@ -99,6 +100,18 @@ class TicketService:
         self.repository.create(ticket)
         self.db.commit()
         self.db.refresh(ticket)
+
+        AuditLogService(self.db).create_log(
+            current_user=current_user,
+            action="ticket.created",
+            entity_type="ticket",
+            entity_id=ticket.id,
+            metadata_json={
+                "title": ticket.title,
+                "priority": ticket.priority,
+                "status": ticket.status,
+            },
+        )
 
         return ticket
 

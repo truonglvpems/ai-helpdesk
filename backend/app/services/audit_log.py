@@ -46,8 +46,6 @@ class AuditLogService:
         )
 
         self.repository.create(audit_log)
-        self.db.commit()
-        self.db.refresh(audit_log)
 
         return audit_log
 

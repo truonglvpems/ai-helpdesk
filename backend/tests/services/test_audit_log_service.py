@@ -37,8 +37,8 @@ def test_create_log():
     assert result.entity_id == entity_id
     assert result.metadata_json == {"title": "Test ticket"}
 
-    db.commit.assert_called_once()
-    assert db.refresh.call_count == 2
+    db.commit.assert_not_called()
+    assert db.refresh.call_count == 1
 
 
 def test_create_log_requires_organization():
