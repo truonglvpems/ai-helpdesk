@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.schemas.ticket import TicketCreate, TicketUpdate, TicketResponse
+from app.schemas.ticket_assignment import TicketAssignmentUpdate
+from app.schemas.ticket_status import TicketStatusUpdate
 from app.services.ticket import TicketService
 from app.api.dependencies import (
     get_current_user,
@@ -127,6 +129,67 @@ def update_ticket(
 
     return ticket
 
+@router.patch(
+    "/{ticket_id}/assignment",
+    response_model=TicketResponse,
+)
+def update_ticket_assignment(
+    ticket_id: UUID,
+    data: TicketAssignmentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        get_current_user
+    ),
+):
+    service = TicketService(db)
+
+    try:
+        ticket = service.update_assignment(
+            ticket_id=ticket_id,
+            assigned_to=data.assigned_to,
+            current_user=current_user,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        )
+
+    if ticket is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Ticket not found",
+        )
+
+    return ticket
+
+@router.patch(
+    "/{ticket_id}/status",
+    response_model=TicketResponse,
+)
+def update_ticket_status(
+    ticket_id: UUID,
+    data: TicketStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        get_current_user
+    ),
+):
+    service = TicketService(db)
+
+    ticket = service.update_status(
+        ticket_id=ticket_id,
+        status=data.status,
+        current_user=current_user,
+    )
+
+    if ticket is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Ticket not found",
+        )
+
+    return ticket
 
 @router.delete(
     "/{ticket_id}",

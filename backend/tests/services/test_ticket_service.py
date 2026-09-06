@@ -526,3 +526,279 @@ def test_update_ticket_cannot_update_other_organization_ticket():
     repository.update.assert_not_called()
     db.commit.assert_not_called()
     db.refresh.assert_not_called()
+
+
+def test_update_assignment_assign():
+    user_id = uuid4()
+    organization_id = uuid4()
+    ticket_id = uuid4()
+    assignee_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=organization_id,
+    )
+
+    ticket = MagicMock()
+    ticket.organization_id = organization_id
+    ticket.assigned_to = None
+
+    repository = MagicMock()
+    repository.get_by_id.return_value = ticket
+
+    db = MagicMock()
+    db.scalar.return_value = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_assign",
+        return_value=True,
+    ) as mock_policy:
+        result = service.update_assignment(
+            ticket_id=ticket_id,
+            assigned_to=assignee_id,
+            current_user=current_user,
+        )
+
+    assert result == ticket
+    assert ticket.assigned_to == assignee_id
+    mock_policy.assert_called_once_with(
+        current_user,
+        ticket,
+    )
+    repository.update.assert_called_once_with(ticket)
+    db.commit.assert_called_once()
+    db.refresh.assert_called_once_with(ticket)
+
+
+def test_update_assignment_unassign():
+    user_id = uuid4()
+    organization_id = uuid4()
+    ticket_id = uuid4()
+    assignee_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=organization_id,
+    )
+
+    ticket = MagicMock()
+    ticket.organization_id = organization_id
+    ticket.assigned_to = assignee_id
+
+    repository = MagicMock()
+    repository.get_by_id.return_value = ticket
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_unassign",
+        return_value=True,
+    ) as mock_policy:
+        result = service.update_assignment(
+            ticket_id=ticket_id,
+            assigned_to=None,
+            current_user=current_user,
+        )
+
+    assert result == ticket
+    assert ticket.assigned_to is None
+    mock_policy.assert_called_once_with(
+        current_user,
+        ticket,
+    )
+    repository.update.assert_called_once_with(ticket)
+    db.commit.assert_called_once()
+    db.refresh.assert_called_once_with(ticket)
+
+
+def test_update_assignment_reassign():
+    user_id = uuid4()
+    organization_id = uuid4()
+    ticket_id = uuid4()
+    old_assignee_id = uuid4()
+    new_assignee_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=organization_id,
+    )
+
+    ticket = MagicMock()
+    ticket.organization_id = organization_id
+    ticket.assigned_to = old_assignee_id
+
+    repository = MagicMock()
+    repository.get_by_id.return_value = ticket
+
+    db = MagicMock()
+    db.scalar.return_value = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_reassign",
+        return_value=True,
+    ) as mock_policy:
+        result = service.update_assignment(
+            ticket_id=ticket_id,
+            assigned_to=new_assignee_id,
+            current_user=current_user,
+        )
+
+    assert result == ticket
+    assert ticket.assigned_to == new_assignee_id
+    mock_policy.assert_called_once_with(
+        current_user,
+        ticket,
+    )
+    repository.update.assert_called_once_with(ticket)
+    db.commit.assert_called_once()
+    db.refresh.assert_called_once_with(ticket)
+
+def test_update_status_allowed_by_policy():
+    user_id = uuid4()
+    organization_id = uuid4()
+    ticket_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=organization_id,
+    )
+
+    ticket = MagicMock()
+    ticket.organization_id = organization_id
+    ticket.status = "OPEN"
+
+    repository = MagicMock()
+    repository.get_by_id.return_value = ticket
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_change_status",
+        return_value=True,
+    ) as mock_can_change_status:
+        result = service.update_status(
+            ticket_id=ticket_id,
+            status="IN_PROGRESS",
+            current_user=current_user,
+        )
+
+    assert result == ticket
+    assert ticket.status == "IN_PROGRESS"
+
+    repository.get_by_id.assert_called_once_with(
+        ticket_id,
+        organization_id,
+    )
+
+    mock_can_change_status.assert_called_once_with(
+        current_user,
+        ticket,
+    )
+
+    repository.update.assert_called_once_with(ticket)
+    db.commit.assert_called_once()
+    db.refresh.assert_called_once_with(ticket)
+
+
+def test_update_status_denied_by_policy():
+    user_id = uuid4()
+    organization_id = uuid4()
+    ticket_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=organization_id,
+    )
+
+    ticket = MagicMock()
+    ticket.organization_id = organization_id
+    ticket.status = "OPEN"
+
+    repository = MagicMock()
+    repository.get_by_id.return_value = ticket
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    with patch(
+        "app.services.ticket.TicketPolicy.can_change_status",
+        return_value=False,
+    ) as mock_can_change_status:
+        result = service.update_status(
+            ticket_id=ticket_id,
+            status="IN_PROGRESS",
+            current_user=current_user,
+        )
+
+    assert result is None
+    assert ticket.status == "OPEN"
+
+    repository.get_by_id.assert_called_once_with(
+        ticket_id,
+        organization_id,
+    )
+
+    mock_can_change_status.assert_called_once_with(
+        current_user,
+        ticket,
+    )
+
+    repository.update.assert_not_called()
+    db.commit.assert_not_called()
+    db.refresh.assert_not_called()
+
+
+def test_update_status_returns_none_when_ticket_not_found():
+    user_id = uuid4()
+    organization_id = uuid4()
+    ticket_id = uuid4()
+
+    current_user = make_current_user(
+        user_id=user_id,
+        organization_id=organization_id,
+    )
+
+    repository = MagicMock()
+    repository.get_by_id.return_value = None
+
+    db = MagicMock()
+
+    service = TicketService.__new__(TicketService)
+    service.db = db
+    service.repository = repository
+
+    result = service.update_status(
+        ticket_id=ticket_id,
+        status="IN_PROGRESS",
+        current_user=current_user,
+    )
+
+    assert result is None
+
+    repository.get_by_id.assert_called_once_with(
+        ticket_id,
+        organization_id,
+    )
+
+    repository.update.assert_not_called()
+    db.commit.assert_not_called()
+    db.refresh.assert_not_called()

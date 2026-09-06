@@ -22,7 +22,6 @@ class TicketUpdate(BaseModel):
         max_length=200,
     )
     description: str | None = None
-    status: str | None = None
     priority: str | None = None
     assigned_to: UUID | None = None
     category_id: UUID | None = None

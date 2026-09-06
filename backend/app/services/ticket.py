@@ -195,31 +195,38 @@ class TicketService:
                     )
 
         # ---------------------------------------------------------
-        # Validate assigned user
-        # ---------------------------------------------------------
-        if "assigned_to" in update_data:
-            assigned_to = update_data["assigned_to"]
-
-            if assigned_to is not None:
-                user = self.db.scalar(
-                    select(User).where(
-                        User.id == assigned_to,
-                        User.organization_id
-                        == ticket.organization_id,
-                    )
-                )
-
-                if user is None:
-                    raise ValueError(
-                        "Assigned user does not belong "
-                        "to ticket organization"
-                    )
-
-        # ---------------------------------------------------------
         # Update fields
         # ---------------------------------------------------------
         for field, value in update_data.items():
             setattr(ticket, field, value)
+
+        self.repository.update(ticket)
+        self.db.commit()
+        self.db.refresh(ticket)
+
+        return ticket
+
+    def update_status(
+        self,
+        ticket_id: UUID,
+        status: str,
+        current_user: User,
+    ) -> Ticket | None:
+        ticket = self.repository.get_by_id(
+            ticket_id,
+            current_user.organization_id,
+        )
+
+        if ticket is None:
+            return None
+
+        if not TicketPolicy.can_change_status(
+            current_user,
+            ticket,
+        ):
+            return None
+
+        ticket.status = status
 
         self.repository.update(ticket)
         self.db.commit()
@@ -251,3 +258,60 @@ class TicketService:
         self.db.commit()
 
         return True
+
+    def update_assignment(
+        self,
+        ticket_id: UUID,
+        assigned_to: UUID | None,
+        current_user: User,
+    ) -> Ticket | None:
+        ticket = self.repository.get_by_id(
+            ticket_id,
+            current_user.organization_id,
+        )
+
+        if ticket is None:
+            return None
+
+        if assigned_to is None:
+            if not TicketPolicy.can_unassign(
+                current_user,
+                ticket,
+            ):
+                return None
+
+        elif ticket.assigned_to is None:
+            if not TicketPolicy.can_assign(
+                current_user,
+                ticket,
+            ):
+                return None
+
+        elif ticket.assigned_to != assigned_to:
+            if not TicketPolicy.can_reassign(
+                current_user,
+                ticket,
+            ):
+                return None
+
+        if assigned_to is not None:
+            user = self.db.scalar(
+                select(User).where(
+                    User.id == assigned_to,
+                    User.organization_id == ticket.organization_id,
+                )
+            )
+
+            if user is None:
+                raise ValueError(
+                    "Assigned user does not belong "
+                    "to ticket organization"
+                )
+
+        ticket.assigned_to = assigned_to
+
+        self.repository.update(ticket)
+        self.db.commit()
+        self.db.refresh(ticket)
+
+        return ticket

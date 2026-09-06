@@ -1,12 +1,19 @@
-from unittest.mock import MagicMock
+from fastapi import HTTPException
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+import pytest
+
+from app.schemas.ticket_status import TicketStatusUpdate
+from app.schemas.ticket_assignment import TicketAssignmentUpdate
 from app.api.routes.tickets import (
     create_ticket,
     delete_ticket,
     get_ticket,
     list_tickets,
     update_ticket,
+    update_ticket_status,
+    update_ticket_assignment
 )
 from app.models.user import User
 
@@ -321,4 +328,212 @@ def test_create_ticket_uses_current_user():
     service.create_ticket.assert_called_once_with(
         data,
         current_user,
+    )
+
+def test_update_ticket_assignment_uses_current_user():
+    ticket_id = uuid4()
+    assignee_id = uuid4()
+    current_user = MagicMock()
+
+    data = TicketAssignmentUpdate(
+        assigned_to=assignee_id,
+    )
+
+    expected_ticket = MagicMock()
+
+    service = MagicMock()
+    service.update_assignment.return_value = expected_ticket
+
+    with patch(
+        "app.api.routes.tickets.TicketService",
+        return_value=service,
+    ):
+        from app.api.routes.tickets import update_ticket_assignment
+
+        db = MagicMock()
+
+        result = update_ticket_assignment(
+            ticket_id=ticket_id,
+            data=data,
+            db=db,
+            current_user=current_user,
+        )
+
+    assert result is expected_ticket
+
+    service.update_assignment.assert_called_once_with(
+        ticket_id=ticket_id,
+        assigned_to=assignee_id,
+        current_user=current_user,
+    )
+
+def test_update_ticket_assignment_returns_404_when_ticket_not_found():
+    ticket_id = uuid4()
+    assignee_id = uuid4()
+    current_user = MagicMock()
+
+    data = TicketAssignmentUpdate(
+        assigned_to=assignee_id,
+    )
+
+    service = MagicMock()
+    service.update_assignment.return_value = None
+
+    with patch(
+        "app.api.routes.tickets.TicketService",
+        return_value=service,
+    ):
+        from app.api.routes.tickets import update_ticket_assignment
+
+        db = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            update_ticket_assignment(
+                ticket_id=ticket_id,
+                data=data,
+                db=db,
+                current_user=current_user,
+            )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "Ticket not found"
+
+def test_update_ticket_assignment_returns_400_for_invalid_assignee():
+    ticket_id = uuid4()
+    assignee_id = uuid4()
+    current_user = MagicMock()
+
+    data = TicketAssignmentUpdate(
+        assigned_to=assignee_id,
+    )
+
+    service = MagicMock()
+    service.update_assignment.side_effect = ValueError(
+        "Assigned user does not belong to ticket organization"
+    )
+
+    with patch(
+        "app.api.routes.tickets.TicketService",
+        return_value=service,
+    ):
+        from app.api.routes.tickets import update_ticket_assignment
+
+        db = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            update_ticket_assignment(
+                ticket_id=ticket_id,
+                data=data,
+                db=db,
+                current_user=current_user,
+            )
+
+    assert exc_info.value.status_code == 400
+    assert (
+        exc_info.value.detail
+        == "Assigned user does not belong to ticket organization"
+    )
+
+def test_update_ticket_status_uses_current_user():
+    ticket_id = uuid4()
+    current_user = MagicMock()
+
+    data = TicketStatusUpdate(
+        status="IN_PROGRESS",
+    )
+
+    expected_ticket = MagicMock()
+
+    service = MagicMock()
+    service.update_status.return_value = expected_ticket
+
+    with patch(
+        "app.api.routes.tickets.TicketService",
+        return_value=service,
+    ):
+        from app.api.routes.tickets import update_ticket_status
+
+        db = MagicMock()
+
+        result = update_ticket_status(
+            ticket_id=ticket_id,
+            data=data,
+            db=db,
+            current_user=current_user,
+        )
+
+    assert result is expected_ticket
+
+    service.update_status.assert_called_once_with(
+        ticket_id=ticket_id,
+        status="IN_PROGRESS",
+        current_user=current_user,
+    )
+
+
+def test_update_ticket_status_returns_404_when_ticket_not_found():
+    ticket_id = uuid4()
+    current_user = MagicMock()
+
+    data = TicketStatusUpdate(
+        status="IN_PROGRESS",
+    )
+
+    service = MagicMock()
+    service.update_status.return_value = None
+
+    with patch(
+        "app.api.routes.tickets.TicketService",
+        return_value=service,
+    ):
+        from app.api.routes.tickets import update_ticket_status
+
+        db = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            update_ticket_status(
+                ticket_id=ticket_id,
+                data=data,
+                db=db,
+                current_user=current_user,
+            )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "Ticket not found"
+
+
+def test_update_ticket_status_passes_status_to_service():
+    ticket_id = uuid4()
+    current_user = MagicMock()
+
+    data = TicketStatusUpdate(
+        status="RESOLVED",
+    )
+
+    expected_ticket = MagicMock()
+
+    service = MagicMock()
+    service.update_status.return_value = expected_ticket
+
+    with patch(
+        "app.api.routes.tickets.TicketService",
+        return_value=service,
+    ):
+        from app.api.routes.tickets import update_ticket_status
+
+        db = MagicMock()
+
+        result = update_ticket_status(
+            ticket_id=ticket_id,
+            data=data,
+            db=db,
+            current_user=current_user,
+        )
+
+    assert result is expected_ticket
+
+    service.update_status.assert_called_once_with(
+        ticket_id=ticket_id,
+        status="RESOLVED",
+        current_user=current_user,
     )
